@@ -80,6 +80,9 @@ class Jig
 		def eql?(other)
 			name == other.name && fn == other.fn
 		end
+		def identity?
+			@fn == Identity
+		end
 	end
 
 	GAP = Gap::DefaultName
@@ -91,10 +94,20 @@ class Jig
 	attr					:css
 	attr_accessor	:source
 
+	def inspect
+		info = gaps.map {|g| g.identity? && g.name || "#{g.name}{}" }
+		contents.zip(info).flatten.inspect
+	end
+
 	# _full?_ returns _true_ if the jig has no remaining gaps to be filled and
 	# _false_ otherwise.
 	def full?
 		gaps.empty?
+	end
+
+	# _null?_ returns _true_ if the jig has no gaps and no contents.
+	def null?
+		full? && to_s.empty?
 	end
 
 	# _gap_count_ returns the number of remaining gaps in the jig.
@@ -134,15 +147,15 @@ class Jig
 		end
 	end
 
-	# A new jig is constructed from the list of _items_.  Simple gaps are represented and
-	# named by symbols.
+	# A new jig is constructed from the list of _items_.  Simple gaps are indicated by
+	# symbols.
 	#   report = Jig.new('Report Generated at', :time)
 	#   title = Jig.title(:title)
-	# If a block is provided, it is appended to the list of items. The block is not
+	# If a block is provided, it is appended as a proc to the list of items. The block is not
 	# evaluated until the Jig is converted to a string by Jig#to_s.
 	#   Jig.new("page created at: ") { Time.now }
 	# If no arguments are given and no block is specified, the new jig will be constructed
-	# with a single gap with the default gap name _Jig::DefaultGAP_.
+	# with a single gap with the default gap name _Jig::DefaultGap_.
 	#   one_gap = Jig.new
 	#   filled = Jig.plug 'filling'  # default gap is used
 	def initialize(*items, &block)
@@ -157,7 +170,7 @@ class Jig
 		end
 	end
 
-	# _freeze_ applies Kernel#freeze to itself and its internal structures.  A frozen jig
+	# _freeze_ applies Kernel#freeze to the jig and its internal structures.  A frozen jig
 	# may still be used with non-mutating methods such as #append or #plug but an exception
 	# will be raised if a mutating method such as #append! or #plug! are used.
 	def freeze
@@ -167,19 +180,15 @@ class Jig
 		@eid.freeze
 	end
 
-	def eql?(other)
-		gaps.eql?(other.gaps) && similar(other)
-	end
-
+	# Two jigs are considered equal by _==_ if their gap structure is the same and
+	# their contents, when flattened, are also the same. Procs are not evaluated.
 	def ==(other)
-		eql?(other)
+		(gaps == other.gaps) && (contents.flatten == other.contents.flatten)
 	end
 
-	def ===(other)
-		gaps.eql?(other.gaps)
-	end
-
-	def similar(other)
+	# If jig.to_s equals other.to_s, return _true_, otherwise _false.
+	# Procs that are part of the jig will be evaluated
+	def =~(other)
 		to_s == other.to_s
 	end
 
@@ -506,11 +515,11 @@ class Jig
 		def element(name='div', *args, &block)
 			attrs = args.shift if Hash === args.first
 
-			items = "<#{name}", ">", "</#{name}>\n"
-			items[2,0] = block if block
-			items[2,0] = args unless args.empty?
-			items[2,0] = GAP unless items.size > 3
-			items[1,0] = attrs if attrs
+			items = ["</#{name}>\n"]
+			items[0,0] = block if block
+			items[0,0] = args unless args.empty?
+			items[0,0] = GAP unless items.size > 3
+			items[0,0] = attrs && ["<#{name}", attrs, ">"]  || "<#{name}>"
 			new(*items)
 		end
 
