@@ -2,6 +2,59 @@
 require 'strscan'
 require 'set'
 
+=begin rdoc
+A jig is an ordered sequence of strings, lambdas, and gaps.  The
+#to_s method creates a new string from this sequence as follows:
+- strings are output as-is
+- gaps are output as the empty string
+- lambdas are evaluated and the results converted to a string
+
+Gaps within a jig are not positional but instead are named.
+The basic plug operation constructs a new jig with the named
+gap(s) replaced with any of: a string, a jig, a lambda, or
+any object that responds to #to_s.  For example:
+
+			j = Jig.new("before", :alpha, "after")
+
+This is a jig with a single gap named "alpha". Symbols are
+used to represent and name gaps.
+
+			j.plug(:alpha, "during")		# -> beforeduringafter
+
+This operation doesn't change j.  It can be used again:
+
+			j.plug(:alpha, "and")				# -> beforeandafter
+
+There is a destructive version of plug that modifies
+the jig in place:
+
+			j.plug!(:alpha, "filled")		# -> beforefilledafter
+
+There are a number of ways to construct a Jig and many of
+them insert an implicit gap into the Jig.  This gap is
+identified as Jig::GAP and is used as the default gap
+for plug operations when one isn't provided:
+
+	Jig.new("A", Jig::GAP, "C").plug("B")		# -> ABC
+
+In order to make Jig's more useful for HTML generation,
+the Jig class supports a variety of convenience methods;
+
+	b = Jig.element("body")			# <body>GAP</body>
+	b.plug("text")							# <body>text</body>
+
+Method missing makes this even simpler:
+
+	b = Jig.body
+	b.plug("text")
+
+Attributes can be specified with a hash:
+
+	b = Jig.p({:class => "summary"})
+	b.plug("This is a summary")
+	# <p class="summary">This is a summary</p>
+
+=end
 class Jig
 	VERSION = '0.8.0'
 	GapPattern = "[a-zA-Z_/][a-zA-Z0-9_/]*"
@@ -38,27 +91,34 @@ class Jig
 	attr					:css
 	attr_accessor	:source
 
+	# _full?_ returns _true_ if the jig has no remaining gaps to be filled and
+	# _false_ otherwise.
 	def full?
 		gaps.empty?
 	end
 
+	# _gap_count_ returns the number of remaining gaps in the jig.
 	def gap_count
 		gaps.size
 	end
 
+	# _gap_set_ returns a Set containing the names of all remaining gaps.
 	def gap_set
 		gaps.inject(Set.new) { |s, gitem| s << gitem.name}
 	end
 
+	# _gap_list_ returns an Array containing the names of all remaining gaps.
+	# A name may occur more than once in the list.
 	def gap_list
 		gaps.collect { |g| g.name }
 	end
 
-	def [](gname)
+	# _has_gap?_ returns _true_ if the named gap exists in the jig, _false_ otherwise.
+	def has_gap?(gname)
 		gaps.find {|x| x.name == gname }
 	end
 
-	alias has_gap? :[]
+	alias [] :has_gap?
 
 	class <<self
 		alias [] :new
@@ -74,6 +134,17 @@ class Jig
 		end
 	end
 
+	# A new jig is constructed from the list of _items_.  Simple gaps are represented and
+	# named by symbols.
+	#   report = Jig.new('Report Generated at', :time)
+	#   title = Jig.title(:title)
+	# If a block is provided, it is appended to the list of items. The block is not
+	# evaluated until the Jig is converted to a string by Jig#to_s.
+	#   Jig.new("page created at: ") { Time.now }
+	# If no arguments are given and no block is specified, the new jig will be constructed
+	# with a single gap with the default gap name _Jig::DefaultGAP_.
+	#   one_gap = Jig.new
+	#   filled = Jig.plug 'filling'  # default gap is used
 	def initialize(*items, &block)
 		@contents = [[]]
 		@gaps = []
@@ -86,6 +157,9 @@ class Jig
 		end
 	end
 
+	# _freeze_ applies Kernel#freeze to itself and its internal structures.  A frozen jig
+	# may still be used with non-mutating methods such as #append or #plug but an exception
+	# will be raised if a mutating method such as #append! or #plug! are used.
 	def freeze
 		super
 		@contents.freeze
