@@ -127,9 +127,9 @@ class Jig
 			new(class_eval(&block))
 		end
 
-		# Construct an empty jig with no gaps.  An empty jig is useful when
-		# constructing a more complex jig via #append.
-		def empty
+		# Construct a null jig.  An null jig has no contents and no gaps and
+		# is often useful as a starting point for construction more complex jigs
+		def null
 			new(nil)
 		end
 	end
@@ -194,9 +194,9 @@ class Jig
 	def *(other)
 		case other
 		when Fixnum
-			(1..other).inject(Jig.empty)  { |j,i| j.append_jig!(self) }
+			(1..other).inject(Jig.null)  { |j,i| j.append_jig!(self) }
 		when Array
-			other.inject(Jig.empty) { |j,x| j.append!( plug(GAP, x) ) }
+			other.inject(Jig.null) { |j,x| j.append!( plug(GAP, x) ) }
 		else
 			raise ArgumentError, "other operand for * must be Fixnum or Array, was #{other.class})"
 		end
@@ -421,10 +421,10 @@ class Jig
 	end
 
 	Base = Hash.new { |h,k| h[k] = element(k).freeze }
-	Blank = begin
-		b = new.plug(nil)
-		b.freeze
-		b
+	Null = begin
+		n = null
+		n.freeze
+		n
 	end
 
 	class <<self
