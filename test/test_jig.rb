@@ -1,4 +1,4 @@
-require 'jig'
+require 'jig/html'
 require 'test/unit'
 
 module JigTest
@@ -281,19 +281,19 @@ class Jig
 			# empty jigs and gaps
 			assert_instance_of(Symbol, Jig::GAP,	'GAP constant')
 			assert_instance_of(Jig, Jig.new,		'EMPTY constant')
-			assert_instance_of(Jig, Jig.blank,		'BLANK constant')
+			assert_instance_of(Jig, Jig::Blank,		'BLANK constant')
 			assert_operator(Jig.new(GAP), :similar, (Jig.new), 'manual construction of an empty jig')
 			assert_equal(Jig.new(GAP), Jig.new, 								'manual construction of an empty jig')
 			assert_not_same(Jig.new(GAP), Jig.new, 						'manual construction of an empty jig is unique')
 
 			assert_instance_of(Jig, Jig.new,			'empty construction')
-			assert_instance_of(Jig, Jig.blank,				'blank construction')
-			assert_operator(Jig.new, :similar, Jig.blank,'blank construction similar to BLANK' )
+			assert_instance_of(Jig, Jig::Blank,				'blank construction')
+			assert_operator(Jig.new, :similar, Jig::Blank,'blank construction similar to BLANK' )
 			#assert_not_equal(Jig.new, Jig.new)
 
-			assert_equal(0, Jig.blank.gap_count,	'blank construction has no gaps')
+			assert_equal(0, Jig::Blank.gap_count,	'blank construction has no gaps')
 			assert_equal(1, Jig.new.gap_count,		'empty construction has a gap')
-			assert_equal("", Jig.blank.to_s,			'blank shows as empty string')
+			assert_equal("", Jig::Blank.to_s,			'blank shows as empty string')
 			assert_equal("", Jig.new.to_s,				'empty shows as empty string')
 
 			assert_operator(Jig.new(:alpha), :similar, Jig.new,		"gap names don't affect string values")

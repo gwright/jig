@@ -3,7 +3,8 @@ require 'strscan'
 require 'set'
 
 class Jig
-	VERSION = '1.0.0'
+	VERSION = '0.8.0'
+	GapPattern = "[a-zA-Z_/][a-zA-Z0-9_/]*"
 
 	class Gap
 		DefaultName = :__gap
@@ -28,18 +29,7 @@ class Jig
 		end
 	end
 
-	Encode = Hash[*(%w{& " > <}.zip(%w{amp quot gt lt}).flatten)]
-
-	def self.escape(target)
-		unless Jig === target 
-			target = Jig.new(target.to_s.gsub(/[&"><]/) {|m| "&#{Encode[m]};" })
-		end
-		target
-	end
-
-
 	GAP = Gap::DefaultName
-	GapPattern = "[a-zA-Z_][a-zA-Z0-9_]*"
 	Dgap = Gap.new
 
 	attr_accessor :contents
@@ -77,8 +67,10 @@ class Jig
 			new(class_eval(&block))
 		end
 
-		def blank
-			new.plug(nil)
+		# Construct an empty jig with no gaps.  An empty jig is useful when
+		# constructing a more complex jig via #append.
+		def empty
+			new(nil)
 		end
 	end
 
@@ -128,9 +120,9 @@ class Jig
 	def *(other)
 		case other
 		when Fixnum
-			(1..other).inject(Jig.blank)  { |j,i| j.append_jig!(self) }
+			(1..other).inject(Jig.empty)  { |j,i| j.append_jig!(self) }
 		when Array
-			other.inject(Jig.blank) { |j,x| j.append!( plug(GAP, x) ) }
+			other.inject(Jig.empty) { |j,x| j.append!( plug(GAP, x) ) }
 		else
 			raise ArgumentError, "other operand for * must be Fixnum or Array, was #{other.class})"
 		end
@@ -355,6 +347,12 @@ class Jig
 	end
 
 	Base = Hash.new { |h,k| h[k] = element(k).freeze }
+	Blank = begin
+		b = new.plug(nil)
+		b.freeze
+		b
+	end
+
 	class <<self
 		GapStart = '(a:|:|\{)'
 		GapEnd = '(:a|:|\})'
