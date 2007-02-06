@@ -3,21 +3,47 @@ require 'strscan'
 require 'set'
 
 =begin rdoc
-A jig is an ordered sequence of strings, lambdas, and gaps.  The
-#to_s method creates a new string from this sequence as follows:
-- strings are output as-is
-- gaps are output as the empty string
-- lambdas are evaluated and the results converted to a string
+A jig is an ordered sequence of objects and named gaps. During construction,
+a gap is represented by a symbol:
 
-Gaps within a jig are not positional but instead are named.
-The basic plug operation constructs a new jig with the named
-gap(s) replaced with any of: a string, a jig, a lambda, or
-any object that responds to #to_s.  For example:
+  Jig.new('left', :middle, 'right')   # ["left", :middle, "right"]
+  Jig.new(1, :two, 3.0, "4")          # [1, :two, 3.0, "4"]
+  Jig.new(lambda { rand(6) })         # [<Proc:0x 255b2>]
 
-			j = Jig.new("before", :alpha, "after")
+As a convenience, a block provided to Jig::new is added to the sequence as a proc:
 
-This is a jig with a single gap named "alpha". Symbols are
-used to represent and name gaps.
+  Jig.new { rand(6) }                 # [<Proc:0x 27646>]
+
+Jig#[] also constructs new jig instances:
+
+  Jig[:header, :body, :footer]        # [:header, :body, :footer]
+
+The primary motivation for Jigs is to provide a templating mechanism for strings.
+In woodworking, a jig is a piece of wood used as a template or guide for other tools.
+
+At any time, a jig can be converted to a string by Jig#to_s.  The string is 
+constructed by concatenating string representations of the objects in the jig as follows:
+- strings are concatenated as-is
+- gaps are skipped
+- procs are evaluated, the results converted to a string, and concatenated
+- other objects are converted by calling _to_s_ and the resulting string is concatenated
+
+A variety of operations are provided to manipulate jigs but the
+most interesting is the 'plug' operation:
+
+  grep  = Jig.new("grep", :pattern, :files)
+  grep_religion = command.plug(:pattern, "religion")
+  grep_all = grep_religion.plug(:files, %w{file1 file2 file3}.join)
+
+which constructs a new jig that shares all the contents of the
+previous jig but with the named gap replaced by one or more objects.
+If there are more than one gaps with the same name, they are all
+replaced with the same sequence of objects.
+
+			j = Jig.new("first", :separator, "middle", :separator, "after")
+			j.plug(:separator, '/').to_s    # "first/middle/last"
+
+This is a jig with a single gap named "alpha".
 
 			j.plug(:alpha, "during")		# -> beforeduringafter
 
@@ -96,7 +122,7 @@ class Jig
 
 	def inspect
 		info = gaps.map {|g| g.identity? && g.name || "#{g.name}{}" }
-		contents.zip(info).flatten.inspect
+		contents.zip(info).flatten[0..-2].inspect
 	end
 
 	# _full?_ returns _true_ if the jig has no remaining gaps to be filled and
@@ -192,17 +218,32 @@ class Jig
 		to_s == other.to_s
 	end
 
+	# Return self.  Useful when trying to coerce objects to jigs.
 	def to_jig
 		self
 	end
 
+	# Construct a new jig by appending the current jig with _other_.
 	def +(other)
 		Jig.new(self, other)
 	end
 
+	# When _other_ is an Integer, a new jig is constructed by concatenating
+	# the current jig the specified number of times:
+	#   three = Jig.new * 3
+	#   three.plug '3'    # "333"
+	# when _other_ is an Array, the elements of the array are used to plug
+	# the default gap of the current jig.  The resulting jigs are concatenated
+	# to form the final result:
+	#   list_item = Jig.new("- ", GAP, "\n") 
+	#   list = list_item * [1,2,3]
+	#   puts list
+	#   - 1
+	#   - 2
+	#   - 3
 	def *(other)
 		case other
-		when Fixnum
+		when Integer
 			(1..other).inject(Jig.null)  { |j,i| j.append_jig!(self) }
 		when Array
 			other.inject(Jig.null) { |j,x| j.append!( plug(GAP, x) ) }
@@ -219,16 +260,14 @@ class Jig
 		Jig[array.zip((1..(array.size - 1)).to_a.map { self.dup })]
 	end
 
-	def eid=(eid)
-		raise RuntimeError, "no eid reassignment permitted" if @eid
-		@eid = eid 
-	end
-
+	# This method is used to simplify construction of new jigs.
 	def gaps=(other)
 		@gaps = other
 	end
 	protected :gaps=
 
+	# A duplicate jig is returned.  The contents of the current jig and the
+	# new jig are shared.
 	def dup
 		other = super
 		other.contents = @contents.dup
@@ -236,6 +275,18 @@ class Jig
 		other
 	end
 
+	# Mutates the current jig by appending the items as follows:
+	# - strings are appended as is
+	# - symbols are converted to gaps and appended 
+	# - instances of Jig::Gap are appended as is
+	# - jigs: each item of the other jig is appended in order to the current jig
+	# - hash: each key, value pair is appended as follows:
+	#   - if the value is a symbol, the pair is appended as an attribute gap
+	#   - if the value is a Jig::Gap, the pair is appended as an attribute gap
+	#   - otherwise the pair is converted to a string (#{key}=\"#{value}\") and appended
+	# - any object that responds to _to_jig_ is converted and appended
+	# - any object that responds to _call_ is appended as a proc
+	# - all other objects are appended as is.
 	def append!(*items)
 		items.each do |i|
 			case i
@@ -263,6 +314,7 @@ class Jig
 		self
 	end
 
+	# XXX can this be removed??
 	def coerce_item(item)
 		case item
 		when String 	then item
@@ -287,10 +339,123 @@ class Jig
 		end
 	end
 
+	# The current jig is duplicated and then mutated by appended the items to the new jig.
 	def append(*items)
 		dup.append!(*items)
 	end
 
+	# The current jig is modified by replacing a gap with other items.
+	def plug!(first, *more, &block)
+		case first
+		when Symbol 
+			gap = first
+		when Hash 
+			return fill(first)
+		else
+			more.unshift first
+			gap = GAP
+		end
+		return self unless has_gap?(gap)
+		more.push(block) if block
+		_plug!(gap, *more)
+	end
+
+	# The current jig is duplicated and the result is modified as with #plug!
+	def plug(*args, &block)
+		dup.plug!(*args, &block)
+	end
+
+	# A new jig is constructed by inserting the item *before* the specified gap.
+	# The gap itself remains in the new jig.
+	def before(gap, item=nil)
+		gap,item = Jig::GAP, gap unless item
+		plug(gap, Jig.new(item, gap))
+	end
+
+	# A new jig is constructed by inserting the item *after* the specified gap.
+	# The gap itself remains in the new jig.
+	def after(gap, item=nil)
+		gap,item = Jig::GAP, gap unless item
+		plug(gap, Jig.new(gap, item))
+	end
+
+	alias << :plug!
+
+	# Duplicate the current jig and then fill any gaps as with _fill!_
+	def fill(hash)
+		dup.fill!(hash)
+	end
+
+	# Mutate the existing jig by filling all remaining gaps.  The gap name
+	# is looked up via _pairs[name]_ and the result is used to plug the gap.
+	# If there is no match in _pairs_ for a gap, it remains unplugged.
+	# This method is useful when the number of gaps is small compared to
+	# the number of pairs.
+	def fill!(pairs)
+		return plug!(pairs) unless pairs.respond_to? :has_key?
+		gap_set.inject(self) {|jig,gap|
+			jig.plug!(gap, pairs[gap]) if pairs.has_key?(gap)
+			jig
+		}
+	rescue
+		puts "hash was: #{pairs.inspect}"
+		raise
+	end
+
+	# Duplicate the current jig and then fill any gaps specified by pairs via
+	# _plug_all!_.
+	def plug_all(pairs)
+		dup.plug_all!(pairs)
+	end
+
+	# Fill all remaining gaps with plugs from pairs. It is assumed that pairs
+	# will always return a value for any key, perhaps nil.
+	def plug_all!(pairs={})
+		gap_set.inject(self) {|jig,gap| jig.plug!(gap, pairs[gap]) }
+	end
+
+	alias close :plug_all!
+
+	# A string is constructed by concatenating the contents of the jig.
+	# Gaps are effectively considered null strings.  Any procs in the jig
+	# are evaluated, the results converted to a string via to_s.  All
+	# other objects are converted to strings via to_s.
+	def to_s
+		contents.flatten.join
+	end
+
+	private 
+
+	def _plug!(gname, item, *more)
+		added = 0
+		self.gaps = gaps.inject([]) do |list, gap|
+			next list << gap unless gap.name == gname
+			match = list.size
+			fill = gap.fill(item, *more)
+			fill = fill.to_jig if fill.respond_to? :to_jig
+			if Jig === fill
+			  case fill.gaps.size
+		    when 0
+		      contents[match,2] = [[contents[match], fill.contents.first, contents[match+1]]]
+	      when 1
+	        contents[match,2] = [[ contents[match], fill.contents.first ], [fill.contents.last, contents[match+1]]]
+				else
+				  contents[match,2] = [[contents[match], fill.contents.first ], fill.contents[1..-2], [fill.contents.last, contents[match+1]]]
+			  end
+				list.push(*fill.gaps)
+			elsif Symbol === fill
+			  list.push Gap.new(fill)
+			elsif Gap === fill
+				list.push fill
+			else
+				contents[match, 2] = [contents[match,2].insert(1, fill)]
+				list
+			end
+		end
+		self
+	end
+
+	# Convert the name, value pair into an attribute gap.
 	def to_attr(aname, value)
 		if Symbol === value
 			Gap.new(value) { |fill| aplug(aname, fill) }
@@ -301,6 +466,13 @@ class Jig
 		end
 	end
 
+	# If value is not true, return null string.
+	# Otherwise render name and value as an XML attribute pair:
+	#
+	# If value is not a Jig and is not a Proc, the string is constructed and returned.
+	# A Proc or a Jig, which may indirectly reference a Proc, is handled by constructing
+	# a lambda that responds to _to_s_.  The evaluation of the Proc or Jig is thus delayed
+	# until _to_s_ is called.
 	def aplug(name, value)
 		return "" unless value
 		return " #{name}=\"#{value}\"" unless value.respond_to?(:call) or Jig === value
@@ -330,104 +502,6 @@ class Jig
 		self
 	end
 
-	def <<(arg)
-		if Hash === arg
-			plug!(arg)
-		else
-			plug!(GAP, arg)
-		end
-	end
-
-	def plug(*args, &block)
-		dup.plug!(*args, &block)
-	end
-
-	def before(gap, item=nil)
-		gap,item = Jig::GAP, gap unless item
-		plug(gap, Jig.new(item, gap))
-	end
-
-	def after(gap, item=nil)
-		gap,item = Jig::GAP, gap unless item
-		plug(gap, Jig.new(gap, item))
-	end
-
-	def plug!(first, *more, &block)
-		case first
-		when Symbol 
-			gap = first
-		when Hash 
-			return fill(first)
-		else
-			more.unshift first
-			gap = GAP
-		end
-		return self unless has_gap?(gap)
-		more.push(block) if block
-		_plug!(gap, *more)
-	end
-
-	def _plug!(gname, item, *more)
-		added = 0
-		self.gaps = gaps.inject([]) do |list, gap|
-			next list << gap unless gap.name == gname
-			match = list.size
-			fill = gap.fill(item, *more)
-			fill = fill.to_jig if fill.respond_to? :to_jig
-			if Jig === fill
-			  case fill.gaps.size
-		    when 0
-		      contents[match,2] = [[contents[match], fill.contents.first, contents[match+1]]]
-	      when 1
-	        contents[match,2] = [[ contents[match], fill.contents.first ], [fill.contents.last, contents[match+1]]]
-				else
-				  contents[match,2] = [[contents[match], fill.contents.first ], fill.contents[1..-2], [fill.contents.last, contents[match+1]]]
-			  end
-			  #plug_pos(match, fill)
-				list.push(*fill.gaps)
-			elsif Symbol === fill
-			  list.push Gap.new(fill)
-			elsif Gap === fill
-				list.push fill
-			else
-				contents[match, 2] = [contents[match,2].insert(1, fill)]
-				list
-			end
-		end
-		self
-	end
-
-	def fill(hash)
-		dup.fill!(hash)
-	end
-
-	def fill!(filling)
-		return plug!(filling) unless filling.respond_to? :has_key?
-		gap_set.inject(self) {|jig,gap|
-			jig.plug!(gap, filling[gap]) if filling.has_key?(gap)
-			jig
-		}
-	rescue
-		puts "hash was: #{filling.inspect}"
-		raise
-	end
-
-	def plug_all(hash)
-		dup.plug_all!(hash)
-	end
-
-	def plug_all!(hash)
-		gap_set.inject(self) {|jig,gap| jig.plug!(gap, hash[gap]) }
-		#gaps.inject(self) {|jig,gap| jig.plug!(gap.name, hash[gap.name])}
-	end
-
-	def close
-		gap_set.inject(self) {|jig, gap| jig.plug(gap, nil) }
-	end
-
-	def to_s
-		contents.to_s
-	end
 
 	Base = Hash.new { |h,k| h[k] = element(k).freeze }
 	Null = begin
@@ -503,60 +577,5 @@ class Jig
 			parse(File.read(filename))
 		end
 
-		def container(tag, css, *args, &block)
-			@css = css
-			element_with_id(tag, {:class => @css}, *args, &block)
-		end
-
-		def divc(css_class, *args, &block)
-			container(:div, css_class, *args, &block)
-		end
-
-		def element(name='div', *args, &block)
-			attrs = args.shift if Hash === args.first
-
-			items = ["</#{name}>\n"]
-			items[0,0] = block if block
-			items[0,0] = args unless args.empty?
-			items[0,0] = GAP unless items.size > 3
-			items[0,0] = attrs && ["<#{name}", attrs, ">"]  || "<#{name}>"
-			new(*items)
-		end
-
-		def element_with_id(tag, *args, &block)
-			idhash = { 'id' => :id }
-			if Hash === args.first
-				idhash.update args.shift
-			end
-			newjig = element( tag, idhash, *args, &block)
-			newjig.eid = "x#{newjig.object_id}"
-			newjig.plug!(:id, newjig.eid )
-		end
-
-		def input(*args, &block)
-			element_with_id(:input, *args, &block)
-		end
-		def textarea(*args, &block)
-			element_with_id(:textarea, *args, &block)
-		end
-		def select(*args, &block)
-			element_with_id(:select, *args, &block)
-		end
-
-		def more(ajig, bjig)
-			body = Jig.div_with_id({:style => 'display: none'}, bjig)
-			Jig[Jig.a({:href=>"#", :onclick => "toggle(#{body.eid})"}, '(details)'), body]
-		end
-
-		def method_missing(symbol, *args, &block)
-			text = symbol.to_s
-			if text =~ /_with_id$/
-				element_with_id(text.sub(/_with_id$/,'').to_sym, *args, &block)
-			elsif text =~ /_$/
-				element(text.chop, *args, &block)
-			else
-				element(symbol, *args, &block)
-			end
-		end
 	end
 end
