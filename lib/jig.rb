@@ -85,27 +85,39 @@ class Jig
 	VERSION = '0.8.0'
 	GapPattern = "[a-zA-Z_/][a-zA-Z0-9_/]*"
 
+	# A Gap represents a named position within the ordered sequence of objects
+	# stored in a Jig.  In addition to a name, a gap can also have an associated
+	# lambda.  When a gap is filled by a plug operation, the replacement items are
+	# passed to the lambda and the return value(s) are used as the replacement items.
+	# The default lambda simply returns the same list of items.
 	class Gap
 		DefaultName = :__gap
 		Identity = lambda { |*filling| return *filling }
-		attr :name
-		attr :fn
+		attr :name		# the name associated with the gap
+		attr :fn			# the lambda associated with the gap
+
+		# Construct a new gap with the specified name.  A block, if given is used
+		# as the filter for replacement items.
 		def initialize(name=DefaultName, &fn)
 			@name = name.to_sym
-			@fn = fn || Identity
+			@fn = fn && lambda(&fn) || Identity
 		end
+
 		def inspect
 			"[#{name}, #{fn.inspect}]"
 		end
-		def fill(filling)
-			fn[filling]
+
+		# Pass the replacement items through the filter
+		def fill(*filling)
+			fn[*filling]
 		end
+
+		# Two gaps are equal if they have the same name and
+		# use the same filter function.
 		def ==(other)
-			eql?(other)
-		end
-		def eql?(other)
 			name == other.name && fn == other.fn
 		end
+		# Return _true_ if the filter function is the default identity filter.
 		def identity?
 			@fn == Identity
 		end
@@ -300,12 +312,11 @@ class Jig
 					append_jig! i.to_jig
 				else
 					if i.respond_to? :call
-						def i.to_s
-							call.to_s
-						end
-						def i.inspect
-							%Q{<Proc:0x#{"%6x" % object_id}>}
-						end
+						(class <<i; self; end).class_eval {
+							alias __to_s :to_s
+							alias inspect :__to_s
+							def to_s; call.to_s; end
+						}
 					end
 					contents.last << i
 				end
@@ -421,7 +432,7 @@ class Jig
 	# are evaluated, the results converted to a string via to_s.  All
 	# other objects are converted to strings via to_s.
 	def to_s
-		contents.flatten.join
+		contents.join
 	end
 
 	private 
@@ -501,6 +512,7 @@ class Jig
 		gaps.concat other.gaps
 		self
 	end
+	protected :append_jig!
 
 
 	Base = Hash.new { |h,k| h[k] = element(k).freeze }
