@@ -104,7 +104,7 @@ class Jig
 		end
 
 		def inspect
-			"[#{name}, #{fn.inspect}]"
+			"#<Gap: [#{name}, #{fn.inspect}]>"
 		end
 
 		# Pass the replacement items through the filter
@@ -126,15 +126,17 @@ class Jig
 	GAP = Gap::DefaultName
 	Dgap = Gap.new
 
-	attr_accessor :contents
-	attr          :gaps
-	attr					:eid
-	attr					:css
-	attr_accessor	:source
+	attr_accessor  :contents    # the sequence of objects
+	attr           :gaps        # the unfilled gaps
+	attr	         :extra       # extra state information, used by extensions
+	attr_accessor	 :source
+	protected :contents=
 
+	# A jig is rendered as an array of objects with gaps represented by symbols.
+	# Gaps with associated filter functions are shown with trailing braces: :gap{}
 	def inspect
 		info = gaps.map {|g| g.identity? && g.name || "#{g.name}{}" }
-		contents.zip(info).flatten[0..-2].inspect
+		"#<Jig: #{contents.zip(info).flatten[0..-2].inspect}>"
 	end
 
 	# _full?_ returns _true_ if the jig has no remaining gaps to be filled and
@@ -174,10 +176,6 @@ class Jig
 	class <<self
 		alias [] :new
 
-		def configure(&block)
-			new(class_eval(&block))
-		end
-
 		# Construct a null jig.  An null jig has no contents and no gaps and
 		# is often useful as a starting point for construction more complex jigs
 		def null
@@ -199,7 +197,7 @@ class Jig
 	def initialize(*items, &block)
 		@contents = [[]]
 		@gaps = []
-		@eid = nil
+		@extra = {}
 		if items.empty? && !block
 			append_gap!(Dgap)
 		else
@@ -215,7 +213,7 @@ class Jig
 		super
 		@contents.freeze
 		@gaps.freeze
-		@eid.freeze
+		@extra.freeze
 	end
 
 	# Two jigs are considered equal by _==_ if their gap structure is the same and
@@ -325,31 +323,6 @@ class Jig
 		self
 	end
 
-	# XXX can this be removed??
-	def coerce_item(item)
-		case item
-		when String 	then item
-		when Symbol 	then Gap.new(item)
-		when Jig::Gap then item
-		when Hash 		then item.map { |k,v| to_attr(k, v) }
-		when Jig 			then item
-		else 
-			if item.respond_to? :to_jig
-				item.to_jig
-			else
-				if item.respond_to? :call
-					def item.to_s
-						call.to_s
-					end
-					def item.inspect
-						%Q{<Proc:0x#{"%6x" % object_id}>}
-					end
-				end
-				item
-			end
-		end
-	end
-
 	# The current jig is duplicated and then mutated by appended the items to the new jig.
 	def append(*items)
 		dup.append!(*items)
@@ -437,19 +410,34 @@ class Jig
 
 	private 
 
-	def _plug!(gname, item, *more)
-		added = 0
+	# This method is where the magic happens. The contents and gap arrays
+	# are modified such that the named gap is removed and the items are 
+	# put in its place.
+	#
+	# Gaps and contents are maintainted in two separate arrays.  Each
+	# element in the contents array is a tree of objects implemented as
+	# nested arrays.  The first element of the gap array represents the
+	# gap between the the first and second element of the contents array.
+	#
+	#             0   1   2   3
+	# contents:   c1  c2  c3  c4
+	# gaps:       g1  g2  g3
+	#
+	# sequence:   c1  g1  c2  g2  c3  g3 c4
+	#
+	# The following relation always holds:  gaps.size + 1 == contents.size
+	def _plug!(gname, *items)
 		self.gaps = gaps.inject([]) do |list, gap|
 			next list << gap unless gap.name == gname
 			match = list.size
-			fill = gap.fill(item, *more)
+			fill = gap.fill(*items)
 			fill = fill.to_jig if fill.respond_to? :to_jig
 			if Jig === fill
 			  case fill.gaps.size
 		    when 0
 		      contents[match,2] = [[contents[match], fill.contents.first, contents[match+1]]]
 	      when 1
-	        contents[match,2] = [[ contents[match], fill.contents.first ], [fill.contents.last, contents[match+1]]]
+	        contents[match,2] = [[contents[match], fill.contents.first ], [fill.contents.last, contents[match+1]]]
 				else
 				  contents[match,2] = [[contents[match], fill.contents.first ], fill.contents[1..-2], [fill.contents.last, contents[match+1]]]
 			  end
