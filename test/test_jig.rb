@@ -3,13 +3,14 @@ require 'test/unit'
 
 module JigTest
 	def assert_similar(a,b, mess="")
-		assert_operator(a, :similar, b, mess)
+		assert_match(a, b, mess)
 	end
 
 	def assert_not_similar(a, b, mess="")
-		assert(!a.similar(b), mess)
+		assert_not_match(a, b, mess)
 	end
 end
+
 
 class Jig
 	class TestJig < Test::Unit::TestCase
@@ -56,7 +57,11 @@ class Jig
 
 			# creation with lambdas
 			assert_equal("abc", Jig.new( lambda { "abc" }).to_s)
-			assert_equal(Jig.new( lambda { "abc" }), Jig.new( lambda { "abc" }))
+			assert_not_equal(Jig.new( lambda { "abc" }), Jig.new( lambda { "abc" }))
+			assert_match(Jig.new( lambda { "abc" }), Jig.new( lambda { "abc" }))
+			abc = lambda { "abc" }
+			assert_equal(Jig.new(abc), Jig.new(abc))
+			assert_match(Jig.new(abc), Jig.new(abc))
 			assert_equal("abc", Jig.new(:alpha, lambda { "abc" }).to_s)
 			assert_equal("123abc", Jig.new("123", :alpha, lambda { "abc" }).to_s)
 			assert_equal("wow", Jig.new { "wow" }.to_s, 'lambda as block to new')
@@ -89,9 +94,9 @@ class Jig
 
 		def test_comparisons
 			assert_equal("abc", Jig["abc"].to_s)
-			assert_equal(Jig["abc"], Jig["a","b", "c"])
-			assert_similar(Jig["abc"], Jig["a",:g1, "b", :g2, "c"])
+			assert_match(Jig["abc"], Jig["a","b", "c"])
 			assert_not_equal(Jig["abc"], Jig["a",:g1, "b", :g2, "c"])
+			assert_match(Jig["abc"], Jig["a",:g1, "b", :g2, "c"])
 		end
 
 		def test_plugging
@@ -226,9 +231,9 @@ class Jig
 			@div = "<div>abc</div>\n"
 			@jdiv = Jig.new("<div>abc</div>\n")
 			assert_equal(@div, @jdiv.to_s)
-			assert_equal(@jdiv, Jig.div << "abc")
-			assert_equal(@jdiv, Jig.div("abc"))
-			assert_equal(@jdiv, Jig.div { "abc" })
+			assert_match(@jdiv, Jig.div << "abc")
+			assert_match(@jdiv, Jig.div("abc"))
+			assert_match(@jdiv, Jig.div { "abc" })
 
 			@divp = "<div><p></p>\n</div>\n"
 			@pdiv = "<p><div></div>\n</p>\n"
@@ -242,8 +247,8 @@ class Jig
 			@full = %Q{<div a="b">inside</div>\n}
 			@full_jig = Jig.new(%Q{<div a="b">inside</div>\n})
 			assert_equal(@full, @full_jig.to_s)
-			assert_equal(@full_jig, Jig.div('a' => 'b') { "inside" })
-			assert_equal(@full_jig, Jig.div({'a' => 'b'}, "inside"))
+			assert_match(@full_jig, Jig.div('a' => 'b') { "inside" })
+			assert_match(@full_jig, Jig.div({'a' => 'b'}, "inside"))
 		end
 
 		def test_eid
@@ -281,22 +286,22 @@ class Jig
 			# empty jigs and gaps
 			assert_instance_of(Symbol, Jig::GAP,	'GAP constant')
 			assert_instance_of(Jig, Jig.new,		'EMPTY constant')
-			assert_instance_of(Jig, Jig::Blank,		'BLANK constant')
-			assert_operator(Jig.new(GAP), :similar, (Jig.new), 'manual construction of an empty jig')
+			assert_instance_of(Jig, Jig::Null,		'BLANK constant')
+			assert_similar(Jig.new(GAP), (Jig.new), 'manual construction of an empty jig')
 			assert_equal(Jig.new(GAP), Jig.new, 								'manual construction of an empty jig')
 			assert_not_same(Jig.new(GAP), Jig.new, 						'manual construction of an empty jig is unique')
 
 			assert_instance_of(Jig, Jig.new,			'empty construction')
-			assert_instance_of(Jig, Jig::Blank,				'blank construction')
-			assert_operator(Jig.new, :similar, Jig::Blank,'blank construction similar to BLANK' )
+			assert_instance_of(Jig, Jig.null,				'blank construction')
+			assert_similar(Jig.new, Jig::Null,'blank construction similar to BLANK' )
 			#assert_not_equal(Jig.new, Jig.new)
 
-			assert_equal(0, Jig::Blank.gap_count,	'blank construction has no gaps')
+			assert_equal(0, Jig::Null.gap_count,	'blank construction has no gaps')
 			assert_equal(1, Jig.new.gap_count,		'empty construction has a gap')
-			assert_equal("", Jig::Blank.to_s,			'blank shows as empty string')
+			assert_equal("", Jig::Null.to_s,			'blank shows as empty string')
 			assert_equal("", Jig.new.to_s,				'empty shows as empty string')
 
-			assert_operator(Jig.new(:alpha), :similar, Jig.new,		"gap names don't affect string values")
+			assert_similar(Jig.new(:alpha), Jig.new,		"gap names don't affect string values")
 			assert_not_equal(Jig.new(:alpha), Jig.new,						"gap names define equality")
 		end
 
@@ -320,7 +325,7 @@ class Jig
 			# gap invariance
 			assert_not_equal(Jig.new(:alpha, "a", :beta), Jig.new(:beta, "a", :alpha), "gap name affects equality")
 			assert_not_equal(Jig.new(:alpha, :beta, "a"), Jig.new(:beta, "a"), "two gaps are not the same as one")
-			assert_operator(Jig.new(:alpha, :beta, "a"), :similar, Jig.new(:beta, "a"), "gaps don't affect output")
+			assert_similar(Jig.new(:alpha, :beta, "a"), Jig.new(:beta, "a"), "gaps don't affect output")
 
 		end
 
@@ -566,7 +571,7 @@ class Jig
 
 		def test_element_with_id
 			j = Jig.element_with_id(:a, :href => "foo")
-			assert_equal(%Q{<a id="#{j.eid}" href="foo"></a>\n}, j.to_s)
+			assert_equal(%Q{<a href="foo" id="#{j.eid}"></a>\n}, j.to_s)
 		end
 	end
 end

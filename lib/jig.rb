@@ -502,8 +502,6 @@ class Jig
 	end
 	protected :append_jig!
 
-
-	Base = Hash.new { |h,k| h[k] = element(k).freeze }
 	Null = begin
 		n = null
 		n.freeze
@@ -516,7 +514,15 @@ class Jig
 		DelimStart = "(<#{GapStart})"
 		DelimEnd = "(#{GapEnd}>)"
 
-
+		# Convert a string into a jig. Code in the string is evaluated relative to _context_,
+		# which should be an instance of Binding.  If a block is provided, the block is evaluated
+		# and its result is parsed into a jig.  In this case, the block is used as the
+		# context for evaluating any embeded code.
+		#
+		# The method parses the string by looking for the following sequences:
+		#   <:identifier:>		is converted into a named gap
+		#   <:identifier,identifier:>  is converted to a key/value pair and becomes an attribute gap
+		#   <{code}>          is converted to a proc
 		def parse(string=nil, context=nil, &block)
 			if block
 				context = block
@@ -573,9 +579,9 @@ class Jig
 			newjig
 		end
 
-		def parse_file(filename)
-			parse(File.read(filename))
+		# Read the contents of filename into a string and parse it as Jig.
+		def parse_file(filename, *context)
+			parse(File.read(filename), *context)
 		end
-
 	end
 end
