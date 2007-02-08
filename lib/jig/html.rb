@@ -33,19 +33,17 @@ class Jig
 
 		# Construct a jig for an HTML element with _name_ as the tag.
 		def element(name='div', *args, &block)
-			attrs = args.shift if Hash === args.first
-			if attrs
-				base = Jig.new("<#{name}", Jig.new(attrs), ">", GAP, "</#{name}>\n")
+			if Hash === args.first
+				attrs = args.shift 
+				base = (new("<#{name}", attrs, ">", GAP, "</#{name}>\n"))
 			else
-				base = (Base[name] ||= Jig.new("<#{name}>", GAP, "</#{name}>\n"))
+				base = (Base[name.to_s] ||=  new("<#{name}>", GAP, "</#{name}>\n"))
 			end
-			contents = []
-			contents[0,0] = block if block
-			contents[0,0] = args unless args.empty?
-			contents[0,0] = Jig::Dgap unless contents.size > 1
-			base.plug(
-			#items[0,0] = attrs && ["<#{name}", attrs, ">"]  || "<#{name}>"
-			#new(*items)
+			items = []
+			items[0,0] = block if block
+			items[0,0] = args unless args.empty?
+			items[0,0] = GAP unless items.size > 1
+			base.plug new(*items)
 		end
 
 		# Construct a jig for an HTML element with _name_ as the tag and include

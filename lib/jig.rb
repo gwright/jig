@@ -214,6 +214,7 @@ class Jig
 		@contents.freeze
 		@gaps.freeze
 		@extra.freeze
+		self
 	end
 
 	# Two jigs are considered equal by _==_ if their gap structure is the same and
