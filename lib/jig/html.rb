@@ -33,18 +33,20 @@ class Jig
 
 		# Construct a jig for an HTML element with _name_ as the tag.
 		def element(name='div', *args, &block)
+			items = (Base[name] ||= ["<#{name}>", "</#{name}>\n"]).dup
+			args.push block if block
 			if Hash === args.first
-				attrs = args.shift 
-				base = (new("<#{name}", attrs, ">", GAP, "</#{name}>\n"))
-			else
-				base = (Base[name.to_s] ||=  new("<#{name}>", GAP, "</#{name}>\n"))
+		  	attrs = args.shift 
+		   	items[0,1] = ["<#{name}", attrs, ">"]
 			end
-			items = []
-			items[0,0] = block if block
-			items[0,0] = args unless args.empty?
-			items[0,0] = GAP unless items.size > 1
-			base.plug new(*items)
+			if args.empty?
+				items[-1,0] = GAP
+			else
+		  	items[-1,0] = args
+			end
+		  new(*items)
 		end
+
 
 		# Construct a jig for an HTML element with _name_ as the tag and include
 		# an ID attribute with a guaranteed unique value.
