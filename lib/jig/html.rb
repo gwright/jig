@@ -21,6 +21,48 @@ class Jig
 		extra[:eid] = eid 
 	end
 
+	def push_hash(hash)
+		push(*hash.map { |k,v| to_attr(k, v) })
+	end
+	protected :push_hash
+
+	# Convert the name, value pair into an attribute gap.
+	def to_attr(aname, value)
+		if Symbol === value
+			Gap.new(value) { |fill| aplug(aname, fill) }
+		elsif Gap === value
+			value
+		else
+			aplug(aname, value)
+		end
+	end
+	private :to_attr
+
+	# If value is false, return null string.
+	# Otherwise render name and value as an XML attribute pair:
+	#
+	# If value is not a Jig and is not a Proc, the string is constructed and returned.
+	# A Proc or a Jig, which may indirectly reference a Proc, is handled by constructing
+	# a lambda that responds to _to_s_.  The evaluation of the Proc or Jig is thus delayed
+	# until _to_s_ is called.
+	def aplug(name, value)
+		return "" unless value
+		return " #{name}=\"#{value}\"" unless value.respond_to?(:call) or Jig === value
+		if Jig === value
+			jig, value = value, lambda { jig.to_s }
+		end
+		future = lambda do
+			if v = value.call
+				%Q{ #{name}="#{v}"}
+			else
+				""
+			end
+		end
+		def future.to_s; call; end
+		future
+	end
+	private :aplug
+
 	class <<self
 		def container(tag, css, *args, &block)
 			extra[:css] = css
@@ -80,8 +122,7 @@ class Jig
 			text = symbol.to_s
 			if text =~ /_with_id$/
 				element_with_id(text.sub(/_with_id$/,'').to_sym, *args, &block)
-			elsif text =~ /_$/
-				# XXX: not sure why this is here
+			elsif text =~ /_$/		# alternate for clashes with existing methods
 				element(text.chop, *args, &block)
 			else
 				element(symbol, *args, &block)
