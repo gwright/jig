@@ -570,13 +570,15 @@ class Jig
 			parse(File.read(filename), *context)
 		end
 
+		# Incorporate methods and class methods specific to _feature_.
+		#
 		def enable(feature)
-			case feature
-			when :xml
-				require __FILE__ + "/xml"
-				extend Jig::Xml::ClassMethods
-				include Jig::Xml
+			if f = %w{xml}.find {|x| x == feature.to_s }
+				require "jig/#{f.capitalize}"
+				extend Jig.const_get(f.capitalize)::ClassMethods
+				include Jig::const_get(f.capitalize)
 			end
+			f
 		end
 	end
 end

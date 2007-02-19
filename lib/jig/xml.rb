@@ -2,8 +2,6 @@ require 'jig'
 
 class Jig
 	module Xml
-		Encode = Hash[*%w{& amp " quot > gt < lt}]
-		Base = {}
 
 		# Element ID: 
 		def eid
@@ -59,6 +57,8 @@ class Jig
 	end
 
 	module Xml::ClassMethods
+		Base = {}
+		Encode = Hash[*%w{& amp " quot > gt < lt}]
 	  def escape(target)
 		  unless Jig === target 
 			  target = Jig.new(target.to_s.gsub(/[#{Encode.keys.join}]/) {|m| "&#{Encode[m]};" })
@@ -74,13 +74,13 @@ class Jig
 			container(:div, css_class, *args, &block)
 		end
 
-		# Construct a jig for an HTML element with _name_ as the tag.
-		def element(name='div', *args, &block)
-			items = (Base[name] ||= ["<#{name}>", "</#{name}>\n"]).dup
+		# Construct a jig for an HTML element with _tag_ as the tag.
+		def element(tag='div', *args, &block)
+			items = (Base[tag] ||= ["<#{tag}>", "</#{tag}>\n"]).dup
 			args.push block if block
 			if Hash === args.first
 		  	attrs = args.shift 
-		   	items[0,1] = ["<#{name}", attrs, ">"]
+		   	items[0,1] = ["<#{tag}", attrs, ">"]
 			end
 			if args.empty?
 				items[-1,0] = GAP
@@ -125,6 +125,9 @@ class Jig
 				element_with_id(text.sub(/_with_id$/,'').to_sym, *args, &block)
 			elsif text =~ /_$/		# alternate for clashes with existing methods
 				element(text.chop, *args, &block)
+			elsif text =~ /_/
+				text = text.gsub(/([^_])_([^_])/){|x| "#{$1}:#{$2}"}.gsub(/__/, '_')
+				element(text, *args, &block)
 			else
 				element(symbol, *args, &block)
 			end
