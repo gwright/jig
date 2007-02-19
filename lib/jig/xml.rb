@@ -90,6 +90,17 @@ class Jig
 		  new(*items)
 		end
 
+		# Construct a jig for an empty HTML element with _tag_ as the tag.
+		def empty(tag='div', *args, &block)
+			args.push block if block
+			if args.empty?
+	    	items = ["<#{tag}/>"]
+			else
+	    	items = ["<#{tag}", "/>"]
+		  	items[-1,0] = args
+			end
+		  new(*items)
+		end
 
 		# Construct a jig for an HTML element with _name_ as the tag and include
 		# an ID attribute with a guaranteed unique value.
@@ -121,15 +132,21 @@ class Jig
 		# Construct an HTML element using the method name as the element tag.
 		def method_missing(symbol, *args, &block)
 			text = symbol.to_s
-			if text =~ /_with_id$/
-				element_with_id(text.sub(/_with_id$/,'').to_sym, *args, &block)
-			elsif text =~ /_$/		# alternate for clashes with existing methods
-				element(text.chop, *args, &block)
-			elsif text =~ /_/
-				text = text.gsub(/([^_])_([^_])/){|x| "#{$1}:#{$2}"}.gsub(/__/, '_')
-				element(text, *args, &block)
+			if text =~ /_with_id!*$/
+				element_with_id(text.sub(/_with_id!*$/,'').to_sym, *args, &block)
 			else
-				element(symbol, *args, &block)
+				if text =~ /_$/		# alternate for clashes with existing methods
+					text.chop!
+				elsif text =~ /_/
+					# Single _ gets converted to : for XML name spaces
+					# Double _ gets converted to single _
+					text = text.gsub(/([^_])_([^_])/){|x| "#{$1}:#{$2}"}.gsub(/__/, '_')
+				end
+				if text =~ /!$/
+					empty(text.chop, *args, &block)
+				else
+					element(text, *args, &block)
+				end
 			end
 		end
 	end
