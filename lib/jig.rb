@@ -569,5 +569,14 @@ class Jig
 		def parse_file(filename, *context)
 			parse(File.read(filename), *context)
 		end
+
+		def enable(feature)
+			case feature
+			when :xml
+				require __FILE__ + "/xml"
+				extend Jig::Xml::ClassMethods
+				include Jig::Xml
+			end
+		end
 	end
 end
