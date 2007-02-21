@@ -741,7 +741,6 @@ class Jig
     end
 
     # Incorporate methods and class methods specific to _feature_.
-    #
     def enable(feature)
       if f = %w{xml}.find {|x| x == feature.to_s }
         require "jig/#{f}"

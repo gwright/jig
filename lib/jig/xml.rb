@@ -57,7 +57,10 @@ class Jig
 	end
 
 	module Xml::ClassMethods
-		Base = {}
+		Cache = {}
+    Cache2 = {}
+    Cache3 = {}
+    Cache4 = {}
 		Encode = Hash[*%w{& amp " quot > gt < lt}]
 	  def escape(target)
 		  unless Jig === target 
@@ -76,11 +79,12 @@ class Jig
 
 		# Construct a jig for an HTML element with _tag_ as the tag.
 		def element(tag='div', *args, &block)
-			items = (Base[tag] ||= ["<#{tag}>", "</#{tag}>\n"]).dup
+			items = (Cache[tag] ||= ["<#{tag}>".freeze, "</#{tag}>\n".freeze]).dup
 			args.push block if block
 			if Hash === args.first
 		  	attrs = args.shift 
-		   	items[0,1] = ["<#{tag}", attrs, ">"]
+		   	items[0,1] = (Cache4[tag] ||= ["<#{tag}".freeze, ">".freeze])
+		   	items[1,0] = attrs
 			end
 			if args.empty?
 				items[-1,0] = GAP
@@ -94,9 +98,9 @@ class Jig
 		def empty(tag='div', *args, &block)
 			args.push block if block
 			if args.empty?
-	    	items = ["<#{tag}/>"]
+        items = (Cache2[tag] ||= ["<#{tag}/>".freeze])
 			else
-	    	items = ["<#{tag}", "/>"]
+        items = (Cache3[tag] ||= ["<#{tag}".freeze, "/>".freeze])
 		  	items[-1,0] = args
 			end
 		  new(*items)
