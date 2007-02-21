@@ -4,14 +4,23 @@ jig
 
 == DESCRIPTION:
   
-A jig is a hierarchical data structure used to construct and manipulate strings with an inherent hierarchical syntax.
-The name is derived from woodworking where a jig is a wooden template designed to guide other woodworking tools.
+A jig is a data structure designed to facilitate construction and manipulation of strings with an inherent hierarchical syntax.
+The name is derived from woodworking where a jig is a template designed to guide other tools.
+The idea is derived from the <bigwig> project (http://www.brics.dk/bigwig/) and in particular the XML templating
+constructs described in the paper: A Type System for Dynamic Web Documents (http://www.brics.dk/bigwig/publications/dyndoc.pdf).
 
-A jig represents an ordered sequence of strings and named 'gaps'.  When converted to a string (via Jig#to_s), strings
-are copied as is and gaps are represented by a null string.  A new jig may be constructed from an existing jig by 'plugging' 
-a named gap.  The new jig shares the layout of the previous jig but with the named gap replaced with the 'plug'.
-Gaps may be plugged by strings, another jig, instances of Proc, or any object that responds to #to_s.  
-The nature of the plug operation results in common fragments being shared across Jig instances.
+A jig is an ordered sequence of objects (usually strings) and named _gaps_. 
+A string corresponding to the jig is produced by Jig#to_s and is formed by
+concatenating the string representation of the objects (via #to_s). 
+Gaps are skipped and thus not represented in the resulting string.
+
+A new jig may be constructed from an existing jig by 'plugging' a named gap.  
+The new jig shares the objects and their ordering from the previous jig but with the named gap replaced with the 'plug'.
+Gaps may be plugged by any object or sequence of objects.
+When a gap is plugged with another jig, the contents (including gaps) are incorporated into the new jig.
+
+By default, a Jig does not provide any methods that are XML specific.
+Additional XML features can be enabled dynamically via Jig.enable(:xml).
 
 == FEATURES/PROBLEMS:
   
@@ -20,13 +29,14 @@ The nature of the plug operation results in common fragments being shared across
 == SYNOPSYS:
 
   j = Jig.new("a", :middle, "c")
-  j.to_s															# "ac"
-  j.plug(:middle, "b").to_s						# "abc"
+  j.to_s                        # "ac"
+  j2 = j.plug(:middle, "b")
+  p j2 == j                     # false
+  j2.to_s                       # "abc"
   
-  j2 = Jig.new(:part1, :part2)				# two gaps
-  j3 = j.plug(:middle, j2)						# 
+  j2 = Jig.new(:part1, :part2)  # two gaps
+  j3 = j.plug(:middle, j2)      # 
   
-
 == REQUIREMENTS:
 
 * Ruby 1.8

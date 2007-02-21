@@ -4,5 +4,5 @@ README.txt
 Rakefile
 bin/jig
 lib/jig.rb
-lib/jig/html.rb
+lib/jig/xml.rb
 test/test_jig.rb

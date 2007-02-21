@@ -92,7 +92,9 @@ end
 
 context "A jig constructed by parsing 'a<:alpha,beta:>b'" do
 	setup do
-		@jig = Jig.parse "a<:alpha,beta:>b"
+		Xjig = Class.new(Jig)
+		Xjig.enable :xml
+		@jig = Xjig.parse "a<:alpha,beta:>b"
 	end
 	specify 'should have one gap named :beta' do
 		@jig.gap_list.should == [:beta]

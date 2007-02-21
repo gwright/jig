@@ -1,4 +1,5 @@
-require 'jig/html'
+require 'jig'
+Jig.enable :xml
 require 'test/unit'
 
 module JigTest
