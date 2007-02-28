@@ -2,6 +2,7 @@ require 'jig'
 
 class Jig
 	module Xml
+    include Builder
 
 		# Element ID: 
 		def eid
@@ -83,7 +84,7 @@ class Jig
 			args.push block if block
 			if Hash === args.first
 		  	attrs = args.shift 
-		   	items[0,1] = (Cache4[tag] ||= ["<#{tag}".freeze, ">".freeze])
+		   	items[0,1] = (Cache4[tag] ||= ["<#{tag}".freeze, ">".freeze]).dup
 		   	items[1,0] = attrs
 			end
 			if args.empty?
@@ -98,9 +99,9 @@ class Jig
 		def empty(tag='div', *args, &block)
 			args.push block if block
 			if args.empty?
-        items = (Cache2[tag] ||= ["<#{tag}/>".freeze])
+        items = (Cache2[tag] ||= ["<#{tag}/>\n".freeze]).dup
 			else
-        items = (Cache3[tag] ||= ["<#{tag}".freeze, "/>".freeze])
+        items = (Cache3[tag] ||= ["<#{tag}".freeze, "/>\n".freeze]).dup
 		  	items[-1,0] = args
 			end
 		  new(*items)
@@ -118,8 +119,84 @@ class Jig
 			newjig.plug!(:id, newjig.eid )
 		end
 
+    def cdata(*args, &block)
+      args.push block if block
+      args.push GAP if args.empty?
+      args.unshift "\n//<![CDATA[\n"
+      args.push "\n//]]>\n"
+      new(*args)
+    end
+
+    def xhtml(*args, &block)
+      new(%Q{<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">\n},
+        Jig.new(*args, &block))
+    end
+
+    def html(*args, &block)
+      attrs = {:lang=>'en', :"xml:lang"=>'en', :xmlns=>'http://www.w3.org/1999/xhtml'}
+      if Hash === args.first
+        attrs.merge! args.shift
+      end
+      args.push GAP if args.empty?
+      element(:html, attrs, *args, &block)
+    end
+
+    def xml_comment(*args, &block)
+      args.push block if block
+      args.push GAP if args.empty?
+      args.unshift "<!-- "
+      args.push " -->\n"
+      new(*args)
+    end
+
+    def js_comment(*args, &block)
+      args.push block if block
+      args.push GAP if args.empty?
+      args.unshift "// "
+      args.push "\n"
+      new(*args)
+    end
+
+    def js(*args, &block)
+      attrs = {:type=>"text/javascript", :language=>"JavaScript"}
+      if Hash === args.first
+        attrs.merge! args.shift
+      end
+      args.push block if block
+      args.push GAP if args.empty?
+      script(attrs, cdata(*args))
+    end
+
+    def link_favicon(extra={})
+      attrs = {:type=>"image/x-icon", :rel=>"icon", :src=>'/favicon.ico'}
+      attrs.merge! extra
+      link!(attrs)
+    end
+
+    def style(*args, &block)
+      attrs = {:type=>"text/css", :media=>"all"}
+      if Hash === args.first
+        attrs.merge! args.shift
+      end
+      args.push block if block
+      args.push GAP if args.empty?
+      jig = script(attrs)
+      unless attrs.has_key? :src
+        jig << cdata(*args)
+      end
+      jig
+    end
+
+    def js_comments(*args, &block)
+      args.push block if block
+      args.push GAP if args.empty?
+      args.unshift "/* "
+      args.push "*/\n"
+      new(*args)
+    end
+
 		def input(*args, &block)
-			element_with_id(:input, *args, &block)
+			empty_with_id(:input, *args, &block)
 		end
 		def textarea(*args, &block)
 			element_with_id(:textarea, *args, &block)
@@ -135,24 +212,51 @@ class Jig
 
 		# Construct an HTML element using the method name as the element tag.
 		def method_missing(symbol, *args, &block)
+      constructor = :element
 			text = symbol.to_s
 			if text =~ /_with_id!*$/
 				element_with_id(text.sub(/_with_id!*$/,'').to_sym, *args, &block)
 			else
+        if text =~ /!$/
+          text.chop!
+          constructor = :empty
+        end
 				if text =~ /_$/		# alternate for clashes with existing methods
 					text.chop!
-				elsif text =~ /_/
+        end
+				if text =~ /_/
 					# Single _ gets converted to : for XML name spaces
 					# Double _ gets converted to single _
 					text = text.gsub(/([^_])_([^_])/){|x| "#{$1}:#{$2}"}.gsub(/__/, '_')
 				end
-				if text =~ /!$/
-					empty(text.chop, *args, &block)
-				else
-					element(text, *args, &block)
-				end
+				send(constructor, text, *args, &block)
 			end
 		end
 	end
+
+  module Builder
+		# Construct an HTML element using the method name as the element tag.
+		def method_missing(symbol, *args, &block)
+      constructor = :element
+			text = symbol.to_s
+			if text =~ /_with_id!*$/
+				Jig.element_with_id(text.sub(/_with_id!*$/,'').to_sym, *args, &block)
+			else
+        if text =~ /!$/
+          text.chop!
+          constructor = :empty
+        end
+				if text =~ /_$/		# alternate for clashes with existing methods
+					text.chop!
+        end
+				if text =~ /_/
+					# Single _ gets converted to : for XML name spaces
+					# Double _ gets converted to single _
+					text = text.gsub(/([^_])_([^_])/){|x| "#{$1}:#{$2}"}.gsub(/__/, '_')
+				end
+				Jig.send(constructor, text, *args, &block)
+			end
+		end
+  end
 
 end
