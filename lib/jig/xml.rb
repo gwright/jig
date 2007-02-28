@@ -2,18 +2,7 @@ require 'jig'
 
 class Jig
 	module Xml
-    include Builder
-
 		# Element ID: 
-		def eid
-			extra[:eid]
-		end
-
-		def eid=(eid)
-			raise RuntimeError, "no eid reassignment permitted" if extra[:eid]
-			extra[:eid] = eid 
-		end
-
 		def push_hash(hash)
 			push(*hash.map { |k,v| to_attr(k, v) })
 		end
@@ -57,31 +46,30 @@ class Jig
 		private :aplug
 	end
 
-	module Xml::ClassMethods
-		Cache = {}
-    Cache2 = {}
-    Cache3 = {}
-    Cache4 = {}
-		Encode = Hash[*%w{& amp " quot > gt < lt}]
+  module Xhtml
+    include Xml
+		def eid
+			extra[:eid]
+		end
+
+		def eid=(eid)
+			raise RuntimeError, "no eid reassignment permitted" if extra[:eid]
+			extra[:eid] = eid 
+		end
+  end
+
+  module Xml::ClassMethods
 	  def escape(target)
 		  unless Jig === target 
-			  target = Jig.new(target.to_s.gsub(/[#{Encode.keys.join}]/) {|m| "&#{Encode[m]};" })
+			  target = new(target.to_s.gsub(/[#{Encode.keys.join}]/) {|m| "&#{Encode[m]};" })
 		  end
 		  target
 	  end
-		def container(tag, css, *args, &block)
-			extra[:css] = css
-			element_with_id(tag, {:class => extra[:css]}, *args, &block)
-		end
-
-		def divc(css_class, *args, &block)
-			container(:div, css_class, *args, &block)
-		end
 
 		# Construct a jig for an HTML element with _tag_ as the tag.
 		def element(tag='div', *args, &block)
-			items = (Cache[tag] ||= ["<#{tag}>".freeze, "</#{tag}>\n".freeze]).dup
 			args.push block if block
+			items = (Cache[tag] ||= ["<#{tag}>".freeze, "</#{tag}>\n".freeze]).dup
 			if Hash === args.first
 		  	attrs = args.shift 
 		   	items[0,1] = (Cache4[tag] ||= ["<#{tag}".freeze, ">".freeze]).dup
@@ -96,7 +84,7 @@ class Jig
 		end
 
 		# Construct a jig for an empty HTML element with _tag_ as the tag.
-		def empty(tag='div', *args, &block)
+		def empty(tag, *args, &block)
 			args.push block if block
 			if args.empty?
         items = (Cache2[tag] ||= ["<#{tag}/>\n".freeze]).dup
@@ -107,17 +95,11 @@ class Jig
 		  new(*items)
 		end
 
-		# Construct a jig for an HTML element with _name_ as the tag and include
-		# an ID attribute with a guaranteed unique value.
-		def element_with_id(tag, *args, &block)
-			idhash = { 'id' => :id }
-			if Hash === args.first
-				idhash.update args.shift
-			end
-			newjig = element( tag, idhash, *args, &block)
-			newjig.eid = "x#{newjig.object_id}"
-			newjig.plug!(:id, newjig.eid )
-		end
+    def xml(*args, &block)
+			attrs = { 'version' => '1.0' }
+			attrs.merge! args.shift if Hash === args.first
+      new("<?xml", attrs, "?>\n}", new(*args, &block))
+    end
 
     def cdata(*args, &block)
       args.push block if block
@@ -126,12 +108,72 @@ class Jig
       args.push "\n//]]>\n"
       new(*args)
     end
+  end
+
+	module Xhml::ClassMethods
+    include Xml::ClassMethods
+		Cache = {}
+    Cache2 = {}
+    Cache3 = {}
+    Cache4 = {}
+		Encode = Hash[*%w{& amp " quot > gt < lt}]
+
+		# Construct an HTML element using the method name as the element tag.
+		def method_missing(symbol, *args, &block)
+      constructor = :element
+			text = symbol.to_s
+			if text =~ /_with_id!*$/
+				element_with_id(text.sub(/_with_id!*$/,'').to_sym, *args, &block)
+			else
+        if text =~ /!$/
+          text.chop!
+          constructor = :empty
+        end
+				if text =~ /_$/		# alternate for clashes with existing methods
+					text.chop!
+        end
+				if text =~ /_/
+					# Single _ gets converted to : for XML name spaces
+					# Double _ gets converted to single _
+					text = text.gsub(/([^_])_([^_])/){|x| "#{$1}:#{$2}"}.gsub(/__/, '_')
+				end
+			  send(constructor, text, *args, &block)
+			end
+		end
+
+		def container(tag, css, *args, &block)
+			extra[:css] = css
+			element_with_id(tag, {:class => extra[:css]}, *args, &block)
+		end
+
+		def divc(css_class, *args, &block)
+			container(:div, css_class, *args, &block)
+		end
+
+		# Construct a jig for an HTML element with _name_ as the tag and include
+		# an ID attribute with a guaranteed unique value.
+		def element_with_id(tag, *args, &block)
+			attrs = { 'id' => :id }
+			attrs.merge! args.shift if Hash === args.first
+			newjig = element(tag, attrs, *args, &block)
+			newjig.eid = "x#{newjig.object_id}"
+			newjig.plug!(:id, newjig.eid )
+		end
+
+		# Construct a jig for an HTML element with _name_ as the tag and include
+		# an ID attribute with a guaranteed unique value.
+		def empty_with_id(tag, *args, &block)
+			attrs = { 'id' => :id }
+			attrs.merge! args.shift if Hash === args.first
+			newjig = empty(tag, attrs, *args, &block)
+			newjig.eid = "x#{newjig.object_id}"
+			newjig.plug!(:id, newjig.eid )
+		end
 
     def xhtml(*args, &block)
       new(%Q{<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">\n},
-        Jig.new(*args, &block))
+        new(*args, &block))
     end
-
     def html(*args, &block)
       attrs = {:lang=>'en', :"xml:lang"=>'en', :xmlns=>'http://www.w3.org/1999/xhtml'}
       if Hash === args.first
@@ -206,57 +248,10 @@ class Jig
 		end
 
 		def more(ajig, bjig)
-			body = Jig.div_with_id({:style => 'display: none'}, bjig)
-			Jig[Jig.a({:href=>"#", :onclick => "toggle(#{body.eid})"}, '(details)'), body]
-		end
-
-		# Construct an HTML element using the method name as the element tag.
-		def method_missing(symbol, *args, &block)
-      constructor = :element
-			text = symbol.to_s
-			if text =~ /_with_id!*$/
-				element_with_id(text.sub(/_with_id!*$/,'').to_sym, *args, &block)
-			else
-        if text =~ /!$/
-          text.chop!
-          constructor = :empty
-        end
-				if text =~ /_$/		# alternate for clashes with existing methods
-					text.chop!
-        end
-				if text =~ /_/
-					# Single _ gets converted to : for XML name spaces
-					# Double _ gets converted to single _
-					text = text.gsub(/([^_])_([^_])/){|x| "#{$1}:#{$2}"}.gsub(/__/, '_')
-				end
-				send(constructor, text, *args, &block)
-			end
+			body = div_with_id({:style => 'display: none'}, bjig)
+			new(a({:href=>"#", :onclick => "toggle(#{body.eid})"}, '(details)'), body)
 		end
 	end
 
-  module Builder
-		# Construct an HTML element using the method name as the element tag.
-		def method_missing(symbol, *args, &block)
-      constructor = :element
-			text = symbol.to_s
-			if text =~ /_with_id!*$/
-				Jig.element_with_id(text.sub(/_with_id!*$/,'').to_sym, *args, &block)
-			else
-        if text =~ /!$/
-          text.chop!
-          constructor = :empty
-        end
-				if text =~ /_$/		# alternate for clashes with existing methods
-					text.chop!
-        end
-				if text =~ /_/
-					# Single _ gets converted to : for XML name spaces
-					# Double _ gets converted to single _
-					text = text.gsub(/([^_])_([^_])/){|x| "#{$1}:#{$2}"}.gsub(/__/, '_')
-				end
-				Jig.send(constructor, text, *args, &block)
-			end
-		end
-  end
 
 end
