@@ -83,50 +83,53 @@ Attributes can be specified with a hash:
 
 =end
 class Jig
+  autoload(:XML, "jig/xml")
+  autoload(:XHTML, "jig/xhtml")
+  autoload(:JavaScript, "jig/javascript")
   VERSION = '0.8.0'
   GapPattern = "[a-zA-Z_/][a-zA-Z0-9_/]*"
 
   # A Gap represents a named position within the ordered sequence of objects
   # stored in a Jig.  In addition to a name, a gap can also have an associated
-  # lambda.  When a gap is filled by a plug operation, the replacement items are
-  # passed to the lambda and the return value(s) are used as the replacement items.
-  # The default lambda simply returns the same list of items.
+  # filter.  When a gap is filled by a plug operation, the replacement items are
+  # passed to the filter and the return value(s) are used as the replacement items.
+  # The default filter simply returns the same list of items.
   class Gap
     DefaultName = :___
     Identity = lambda { |*filling| return *filling }
     attr :name    # the name associated with the gap
-    attr :fn      # the lambda associated with the gap
+    attr :filter  # the lambda associated with the gap
 
     # Construct a new gap with the specified name.  A block, if given, becomes
     # the filter for replacement items.
-    def initialize(name=DefaultName, &fn)
+    def initialize(name=DefaultName, &filter)
       @name = name.to_sym
-      @fn = fn && lambda(&fn) || Identity
+      @filter = filter && lambda(&filter) || Identity
     end
 
     def inspect
-      "#<Gap: [#{name}, #{fn.inspect}]>"
+      "#<Gap: [#{name}, #{filter.inspect}]>"
     end
 
     # Pass the replacement items through the filter.
     def fill(*filling)
-      fn[*filling]
+      filter[*filling]
     end
 
     # Two gaps are equal if they have the same name and
     # use the same filter.
     def ==(other)
-      name == other.name && fn == other.fn
+      name == other.name && filter == other.filter
     end
 
     # Returns _true_ if the filter is the default identity filter.
     def identity?
-      @fn == Identity
+      @filter == Identity
     end
   end
 
   GAP = Gap::DefaultName
-  Dgap = Gap.new
+  DefaultGap = Gap.new
 
   attr_accessor  :contents    # the sequence of objects
   protected      :contents=
@@ -192,10 +195,12 @@ class Jig
   end
 
 
-  # Construct A new jig from the list of _items_.  Symbols in the list are
-  # replaced with a gap using the symbol as the name of the gap.
-  #   report = Jig.new('Report Generated at', :time)
-  #   title = Jig.title(:title)
+  # Construct a jig from the list of _items_.  Symbols in the list are
+  # replaced with a gap named by the symbol.
+  #
+  #   item = Jig.new(:quantity, "@", :price, "=", :amount)
+  #   time = Jig.new(:hours, ":", :minutes, ":",  :seconds)
+  #
   # If a block is provided, it is appended as a proc to the list of items. Procs within
   # a jig are not evaluated until the jig is converted to a string by Jig#to_s.
   #   i = 0
@@ -203,16 +208,16 @@ class Jig
   #   i = 1
   #   puts j     # i = 1
   # 
-  # If no arguments or block are given, the new jig is constructed
-  # with a single gap with the default gap name Jig::GAP.
+  # If no arguments are given and no block is given, the jig is constructed
+  # with a single default gap named :___ (also known as Jig::GAP).
   #   one_gap = Jig.new
-  #   one_gap.plug('filling').to_s   # filling
+  #   p one_gap.gap_list   -> [:___]
   def initialize(*items, &block)
     @contents = [[]]
     @gaps = []
     @extra = {}
     if items.empty? && !block
-      push_gap(Dgap)
+      push_gap(DefaultGap)
     else
       push(*items)
       push(block) if block
@@ -256,12 +261,16 @@ class Jig
   end
 
   # call-seq:
-  #   jig + obj       -> a_jig
-  # Duplicate the current jig then use concat to add _obj.
-  #   Jig[1, :alpha] + 2               # Jig[1, :alpha, 2]
-  #   Jig[1, :alpha] + Jig[:beta]      # Jig[1, :alpha, :beta]
-  #   Jig[1, :alpha] + [3,4]           # Jig[1, :alpha, 3, 4]
-  #   Jig[1, :alpha] + [Jig.new, Jig.new]   # Jig[1, :alpha, :___, :___]
+  #   jig + obj -> a_jig
+  #
+  # Duplicate the current jig then use concat to add _obj_.
+  #   j = Jig[1, :alpha]
+  #   j + 2                     # Jig[1, :alpha, 2]
+  #   j + :beta                 # Jig[1, :alpha, :beta]
+  #   j + Jig[:beta]            # Jig[1, :alpha, :beta]
+  #   j + [3,4]                 # Jig[1, :alpha, 3, 4]
+  #   j + [Jig.new, Jig.new]    # Jig[1, :alpha, :___, :___]
+  #   j + Jig[:beta] * 2        # Jig[1, :alpha, :beta, :beta]
   def +(obj)
     dup.concat(obj)
   end
@@ -272,25 +281,23 @@ class Jig
   #
   # With an integer argument, a new jig is constructed by concatenating
   # *int* copies of *self*.
-  #   three = Jig.new * 3
-  #   three.plug '3'    # "333"
+  #   three = Jig.new * 3      # Jig[:___, :___, :___]
+  #   puts three.plug('3')     # "333"
   # With an array argument, the elements of the array are used to plug
-  # the default gap of the current jig.  The resulting jigs are concatenated
+  # the default gap. The resulting jigs are concatenated
   # to form the final result:
-  #   item = Jig.new("- ", :___, "\n") 
+  #   item = Jig["- ", :___, "\n"]
   #   list = item * [1,2,3]
-  #   puts list
-  #   - 1
-  #   - 2
-  #   - 3
+  #   puts list               # "- 1\n- 2\n- 3\n"
   def *(other)
     case other
     when Integer
-      (1..other).inject(Jig.null)  { |j,i| j.push_jig(self) }
+      raise ArgumentError, "count must be greater than zero" if other < 1
+      (1...other).inject(dup)  { |j,i| j.push_jig(self) }
     when Array
       other.inject(Jig.null) { |j,x| j.concat( plug(x) ) }
     else
-      raise ArgumentError, "other operand for * must be Fixnum or Array, was #{other.class})"
+      raise ArgumentError, "other operand for * must be Integer or Array, was #{other.class})"
     end
   end
 
@@ -336,6 +343,7 @@ class Jig
   def push(*items)
     items.each do |i|
       case i
+      when NilClass, FalseClass then next
       when Symbol   then push_gap Gap.new(i)
       when String   then contents.last << i
       when Jig::Gap then push_gap i
@@ -394,8 +402,16 @@ class Jig
     plug_all!(gaps_set.inject({}) { |h, g| h[g.name] = yield(g.name); h })
   end
 
+  # call-seq:
+  #   plug!(symbol)              -> a_jig
+  #   plug!(symbol, item, *more) -> a_jig
+  #   plug!(hash)                -> a_jig
+  #   plug!(item, *more)         -> a_jig
+  #   plug!                      -> a_jig
+  #
   # Plugs one or more named gaps (see #plug) and returns self.  The current jig is
   # modified.  To construct a new jig use #plug instead.
+  # If the named plug is not defined, the jig is not changed.
   def plug!(first=nil, *more, &block)
     gap = :___
     case first
@@ -436,21 +452,20 @@ class Jig
 
   # call-seq:
   #   plug(symbol)              -> a_jig
-  #   plug(gap)                 -> a_jig
   #   plug(symbol, item, *more) -> a_jig
   #   plug(hash)                -> a_jig
   #   plug(item, *more)         -> a_jig
   #   plug                      -> a_jig
   #
   # Duplicates the current jig,  plugs one or more named gaps, and
-  # returns the result.
+  # returns the result. If the named plug is not defined, the
+  # duplicate jig is returned as is.
   #
-  # If called with a symbol or an instance of Jig::Gap, the
-  # default gap is plugged with a simple gap (symbol) or
-  # gap.
+  # If called with a symbol, the
+  # default gap is plugged with a simple gap (symbol).
   #
   # If called with a symbol and one or more items, the
-  # named gap is replaced with the items.
+  # named gap is plugged with the items.
   #
   # If called with a hash, the keys are used as gap names and
   # the values are used to plug the respective gaps.  The gaps
@@ -458,7 +473,7 @@ class Jig
   # with the plugs of one gap being considered while plugging
   # subsequent gaps.
   #
-  # If called with list one or more items the default gap is
+  # If called with a list of one or more items the default gap is
   # plugged with the list of items.
   #
   # If called with no arguments, the default gap is plugged
@@ -741,13 +756,22 @@ class Jig
     end
 
     # Incorporate methods and class methods specific to _feature_.
-    def enable(feature)
-      if f = %w{xml}.find {|x| x == feature.to_s }
-        require "jig/#{f}"
-        extend Jig.const_get(f.capitalize)::ClassMethods
-        include Jig::const_get(f.capitalize)
+    def enable(*features)
+      features.map do |f|
+        begin
+          extend Jig.const_get(f)::ClassMethods
+          include Jig::const_get(f)
+          f
+        rescue
+          nil
+        end
       end
-      f
+    end
+  end
+
+  module Proxy
+    def method_missing(*a, &b)
+      Jig.send(*a, &b)
     end
   end
 end

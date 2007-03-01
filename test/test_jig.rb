@@ -1,5 +1,5 @@
 require 'jig'
-Jig.enable :xml
+Jig.enable :XML, :XHTML, :JavaScript
 require 'test/unit'
 
 module JigTest
@@ -170,7 +170,7 @@ class Jig
 
 		def test_element
 			# element construction
-			@div = "<div></div>\n"
+			@div = "<div>\n</div>\n"
 			assert_equal(@div, Jig.element.to_s, 'default element as "div"')
 
 			assert_equal(@div, Jig.element(:div).to_s)
@@ -178,15 +178,15 @@ class Jig
 			assert_equal(@div, Jig.element(:div, Jig::GAP).to_s)
 			assert_equal(@div, Jig.element(:div, Jig.new).to_s)
 
-			@div2 = "<div>inside</div>\n"
+			@div2 = "<div>\ninside</div>\n"
 			assert_equal(@div2, Jig.element(:div, "inside").to_s)
 			assert_equal(@div2, Jig.element(:div, "in", "side").to_s)
 
 			# element with attributes
-			@div_empty = "<div></div>\n"
-			@div_1attr= %Q{<div a="b"></div>\n}
-			@div_1attrfilled= %Q{<div a="b">inside</div>\n}
-			@div_1attrfilled2= %Q{<div a="b">insidealso</div>\n}
+			@div_empty = "<div>\n</div>\n"
+			@div_1attr= %Q{<div a="b">\n</div>\n}
+			@div_1attrfilled= %Q{<div a="b">\ninside</div>\n}
+			@div_1attrfilled2= %Q{<div a="b">\ninsidealso</div>\n}
 			assert_not_equal(@div_empty, Jig.element(:div, 'a' => 'b').to_s)
 			assert_equal(@div_1attr, Jig.element(:div, 'a' => 'b').to_s)
 			assert_equal(@div_1attrfilled, Jig.element(:div, {'a' => 'b'}, "inside").to_s)
@@ -205,7 +205,7 @@ class Jig
 
 			assert_equal(Jig.div_, Jig.div)
 
-			@div2 = "<div>inside</div>\n"
+			@div2 = "<div>\ninside</div>\n"
 			assert_equal(@div2, Jig.element(:div, "inside").to_s)
 			assert_equal(@div2, Jig.element(:div, "in", "side").to_s)
 
@@ -216,10 +216,10 @@ class Jig
 			assert_equal(@div2, Jig.div("in", "side").to_s)
 
 			# div with attributes
-			@div_empty = "<div></div>\n"
-			@div_1attr= %Q{<div a="b"></div>\n}
-			@div_1attrfilled= %Q{<div a="b">inside</div>\n}
-			@div_1attrfilled2= %Q{<div a="b">insidealso</div>\n}
+			@div_empty = "<div>\n</div>\n"
+			@div_1attr= %Q{<div a="b">\n</div>\n}
+			@div_1attrfilled= %Q{<div a="b">\ninside</div>\n}
+			@div_1attrfilled2= %Q{<div a="b">\ninsidealso</div>\n}
 			assert_not_equal(@div_empty, Jig.div( 'a' => 'b').to_s)
 			assert_equal(@div_1attr, Jig.div( 'a' => 'b').to_s)
 			assert_equal(@div_1attrfilled, Jig.div( {'a' => 'b'}, "inside").to_s)
@@ -229,34 +229,34 @@ class Jig
 		end
 
 		def test_more_plugging
-			@div = "<div>abc</div>\n"
-			@jdiv = Jig.new("<div>abc</div>\n")
+			@div = "<div>\nabc</div>\n"
+			@jdiv = Jig.new("<div>\nabc</div>\n")
 			assert_equal(@div, @jdiv.to_s)
 			assert_match(@jdiv, Jig.div << "abc")
 			assert_match(@jdiv, Jig.div("abc"))
 			assert_match(@jdiv, Jig.div { "abc" })
 
-			@divp = "<div><p></p>\n</div>\n"
-			@pdiv = "<p><div></div>\n</p>\n"
-			@jdivp = Jig.new("<div><p></p>\n</div>\n")
-			@jpdiv = Jig.new("<p><div></div>\n</p>\n")
+			@divp = "<div>\n<p>\n</p>\n</div>\n"
+			@pdiv = "<p>\n<div>\n</div>\n</p>\n"
+			@jdivp = Jig.new("<div>\n<p>\n</p>\n</div>\n")
+			@jpdiv = Jig.new("<p>\n<div>\n</div>\n</p>\n")
 			assert_equal(@divp, @jdivp.to_s)
 			assert_equal(@pdiv, @jpdiv.to_s)
 			assert_similar(@jdivp, (Jig.div << Jig.p))
 			assert_similar(@jpdiv, Jig.p << Jig.div)
 
-			@full = %Q{<div a="b">inside</div>\n}
-			@full_jig = Jig.new(%Q{<div a="b">inside</div>\n})
+			@full = %Q{<div a="b">\ninside</div>\n}
+			@full_jig = Jig.new(%Q{<div a="b">\ninside</div>\n})
 			assert_equal(@full, @full_jig.to_s)
 			assert_match(@full_jig, Jig.div('a' => 'b') { "inside" })
 			assert_match(@full_jig, Jig.div({'a' => 'b'}, "inside"))
 		end
 
 		def test_eid
-			@div = %r{<div id="[^"]*"></div>\n}
-			@input = %r{<input id="\w*"></input>}
+			@div = %r{<div id="[^"]*">\n</div>\n}
+			@input = %r{<input id="\w*"/>}
 			@jig_div_id = Jig.div_with_id
-			@jig_input = Jig.input
+			@jig_input = Jig.input!
 			assert_match(@div, @jig_div_id.to_s)
 			assert_raise(RuntimeError,'eid reassignment') { @jig_div_id.eid = "foo" }
 			assert_match(@input, Jig.input.to_s)
@@ -268,12 +268,12 @@ class Jig
 			#assert_raise(ArgumentError) { ((Jig.div('a' => GAP) << Jig.p).to_s) }
 
 			assert_equal( "ab", (Jig.new(:alpha, :beta) << {:alpha => 'a', :beta => 'b'}).to_s)
-			assert_equal( "<div></div>\n", (Jig.div).to_s)
+			assert_equal( "<div>\n</div>\n", (Jig.div).to_s)
 			assert_not_equal( "ab", Jig.div.plug("ab").to_s)
-			assert_equal( "<div>ab</div>\n", Jig.div.plug("ab").to_s)
+			assert_equal( "<div>\nab</div>\n", Jig.div.plug("ab").to_s)
 
 			#assert_equal( %Q{<div a="b">ab</div>\n}, Jig.div("a" => "b").to_s)
-			assert_equal( %Q{<div a="b">foo</div>\n}, Jig.div("a" => "b").plug("foo").to_s)
+			assert_equal( %Q{<div a="b">\nfoo</div>\n}, Jig.div("a" => "b").plug("foo").to_s)
 
 			# test plug nil
 			# test plug with Hash
@@ -285,7 +285,7 @@ class Jig
 
 		def test_001_identities
 			# empty jigs and gaps
-			assert_instance_of(Symbol, Jig::GAP,	'GAP constant')
+      assert_instance_of(Symbol, Jig::GAP,	'GAP constant')
 			assert_instance_of(Jig, Jig.new,		'EMPTY constant')
 			assert_instance_of(Jig, Jig::Null,		'BLANK constant')
 			assert_similar(Jig.new(GAP), (Jig.new), 'manual construction of an empty jig')
@@ -462,18 +462,18 @@ class Jig
 			#assert_raise(ArgumentError) { ((Jig.div('a' => GAP) << Jig.p).to_s) }
 
 			assert_equal( "ab", (Jig.new(:alpha, :beta) << {:alpha => 'a', :beta => 'b'}).to_s)
-			assert_equal( "<div></div>\n", (Jig.div).to_s)
+			assert_equal( "<div>\n</div>\n", (Jig.div).to_s)
 			assert_not_equal( "ab", Jig.div.plug("ab").to_s)
-			assert_equal( "<div>ab</div>\n", Jig.div.plug("ab").to_s)
+			assert_equal( "<div>\nab</div>\n", Jig.div.plug("ab").to_s)
 
-			assert_equal( %Q{<div a="b"></div>\n}, Jig.div("a" => "b").to_s)
-			assert_equal( %Q{<div a="b">foo</div>\n}, Jig.div("a" => "b").plug("foo").to_s)
-			assert_equal( %Q{<div a="foo"></div>\n}, Jig.div("a" => :a).plug(:a, "foo").to_s)
-			assert_equal( %Q{<div>bar</div>\n}, Jig.div("a" => nil).plug("bar").to_s)
-			assert_equal( %Q{<div a="">bar</div>\n}, Jig.div("a" => "").plug("bar").to_s)
-			assert_equal( %Q{<div a="foo">bar</div>\n}, Jig.div("a" => :a).plug("bar").plug(:a, "foo").to_s)
+			assert_equal( %Q{<div a="b">\n</div>\n}, Jig.div("a" => "b").to_s)
+			assert_equal( %Q{<div a="b">\nfoo</div>\n}, Jig.div("a" => "b").plug("foo").to_s)
+			assert_equal( %Q{<div a="foo">\n</div>\n}, Jig.div("a" => :a).plug(:a, "foo").to_s)
+			assert_equal( %Q{<div>\nbar</div>\n}, Jig.div("a" => nil).plug("bar").to_s)
+			assert_equal( %Q{<div a="">\nbar</div>\n}, Jig.div("a" => "").plug("bar").to_s)
+			assert_equal( %Q{<div a="foo">\nbar</div>\n}, Jig.div("a" => :a).plug("bar").plug(:a, "foo").to_s)
 
-			assert_equal( %Q{<div></div>\n}, Jig.div(nil).to_s)
+			assert_equal( %Q{<div>\n</div>\n}, Jig.div(nil).to_s)
 		end
 
 		def test_string_as_jig
@@ -495,8 +495,8 @@ class Jig
 		def test_attribute_with_gap
 			j1 = Jig.new("a", :gap1, "b")
 			j2 = Jig.form( :onsubmit => j1 )
-			assert_equal("<form onsubmit=\"ab\"></form>\n", j2.to_s)
-			assert_equal("<form onsubmit=\"ab\"></form>\n", j2.plug(:gap1, "X").to_s)
+			assert_equal("<form onsubmit=\"ab\">\n</form>\n", j2.to_s)
+			assert_equal("<form onsubmit=\"ab\">\n</form>\n", j2.plug(:gap1, "X").to_s)
 		end
 
 		def xtest_depth
@@ -572,7 +572,7 @@ class Jig
 
 		def test_element_with_id
 			j = Jig.element_with_id(:a, :href => "foo")
-			assert_equal(%Q{<a href="foo" id="#{j.eid}"></a>\n}, j.to_s)
+			assert_match(%r{<a id="#{j.eid}" href="foo"></a>\n}, j.to_s)
 		end
 	end
 end
