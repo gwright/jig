@@ -85,7 +85,6 @@ Attributes can be specified with a hash:
 class Jig
   autoload(:XML, "jig/xml")
   autoload(:XHTML, "jig/xhtml")
-  autoload(:JavaScript, "jig/javascript")
   VERSION = '0.8.0'
   GapPattern = "[a-zA-Z_/][a-zA-Z0-9_/]*"
 
@@ -95,14 +94,15 @@ class Jig
   # passed to the filter and the return value(s) are used as the replacement items.
   # The default filter simply returns the same list of items.
   class Gap
-    DefaultName = :___
+    ATTRS = :__a
+    INNER = :___
     Identity = lambda { |*filling| return *filling }
     attr :name    # the name associated with the gap
     attr :filter  # the lambda associated with the gap
 
     # Construct a new gap with the specified name.  A block, if given, becomes
     # the filter for replacement items.
-    def initialize(name=DefaultName, &filter)
+    def initialize(name=INNER, &filter)
       @name = name.to_sym
       @filter = filter && lambda(&filter) || Identity
     end
@@ -128,13 +128,15 @@ class Jig
     end
   end
 
-  GAP = Gap::DefaultName
-  DefaultGap = Gap.new
+  INNER_GAP = Gap.new
+  INNER = INNER_GAP.name
 
   attr_accessor  :contents    # the sequence of objects
   protected      :contents=
-  attr           :gaps        # the unfilled gaps
-  attr           :extra       # extra state information, used by extensions
+  attr_accessor  :gaps        # the unfilled gaps
+  protected      :gaps=
+  attr_accessor  :extra       # extra state information, used by extensions
+  protected      :extra
 
   # A jig is rendered as an array of objects with gaps represented by symbols.
   # Gaps with associated filters are shown with trailing braces: :gap{}.
@@ -217,7 +219,7 @@ class Jig
     @gaps = []
     @extra = {}
     if items.empty? && !block
-      push_gap(DefaultGap)
+      push_gap(INNER_GAP)
     else
       push(*items)
       push(block) if block
@@ -309,11 +311,6 @@ class Jig
     Jig[array.zip((1..(array.size - 1)).to_a.map { self.dup })]
   end
 
-  # Replace current set of gaps with _other_
-  def gaps=(other)
-    @gaps = other
-  end
-  protected :gaps=
 
   # A duplicate jig is returned.  This is a shallow copy, the 
   # contents of the jig are not duplicated.
@@ -321,6 +318,7 @@ class Jig
     other = super
     other.contents = @contents.dup
     other.gaps = @gaps.dup
+    other.extra = @extra.dup
     other
   end
 

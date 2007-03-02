@@ -16,58 +16,28 @@ class Jig
 
 	module XHTML::ClassMethods
     include XML::ClassMethods
-
-		# Construct an HTML element using the method name as the element tag.
-		def method_missing(symbol, *args, &block)
-      constructor = :element
-			text = symbol.to_s
-			if text =~ /_with_id!*$/
-				element_with_id(text.sub(/_with_id!*$/,'').to_sym, *args, &block)
-			else
-        if text =~ /!$/
-          text.chop!
-          constructor = :empty
-        end
-				if text =~ /_$/		# alternate for clashes with existing methods
-					text.chop!
-        end
-				if text =~ /_/
-					# Single _ gets converted to : for XML name spaces
-					# Double _ gets converted to single _
-					text = text.gsub(/([^_])_([^_])/){|x| "#{$1}:#{$2}"}.gsub(/__/, '_')
-				end
-			  send(constructor, text, *args, &block)
-			end
-		end
-
-		def container(tag, css, *args, &block)
-			jig = element_with_id(tag, {:class => css}, *args, &block)
-      jig.extra[:css] = css
-      jig
-		end
-
-		def divc(css_class, *args, &block)
-			container(:div, css_class, *args, &block)
-		end
-
 		# Construct a jig for an HTML element with _name_ as the tag and include
 		# an ID attribute with a guaranteed unique value.
-		def element_with_id(tag, *args, &block)
+		def element_with_id(tag, *args)
 			attrs = { 'id' => :id }
-			attrs.merge! args.shift if Hash === args.first
-			newjig = element(tag, attrs, *args, &block)
+			attrs = attrs.merge!(args.pop) if args.last.respond_to?(:has_key?)
+      args.push(Proc.new) if block_given?
+      args.push attrs
+			newjig = element(tag, *args)
 			newjig.eid = "x#{newjig.object_id}"
 			newjig.plug!(:id, newjig.eid )
 		end
 
 		# Construct a jig for an HTML element with _name_ as the tag and include
 		# an ID attribute with a guaranteed unique value.
-		def empty_with_id(tag, *args, &block)
+		def element_with_id!(tag, *args)
 			attrs = { 'id' => :id }
-			attrs.merge! args.shift if Hash === args.first
-			newjig = empty(tag, attrs, *args, &block)
-			newjig.eid = "x#{newjig.object_id}"
-			newjig.plug!(:id, newjig.eid )
+			attrs = attrs.merge!(args.pop) if args.last.respond_to?(:has_key?)
+      args.push(Proc.new) if block_given?
+      args.push attrs
+      jig = element!(tag, *args)
+			jig.eid = "x#{newjig.object_id}"
+			jig.plug!(:id, jig.eid)
 		end
 
     DOCTYPES = {
@@ -81,12 +51,29 @@ class Jig
     end
 
     def xhtml(dtype=:transitional, *args, &block)
+      if dtype.respond_to?(:fetch)
+        dtype,*args = :transitional,dtype
+      end
       attrs = {:lang=>'en', :"xml:lang"=>'en', :xmlns=>'http://www.w3.org/1999/xhtml'}
-      attrs.merge! args.shift if Hash === args.first
-      args.push block if block
+      attrs.merge!(args.pop) if args.last.respond_to?(:fetch) 
+      args.push(Proc.new) if block_given?
       args.push(head(title(:title),:head),body) if args.empty?
-      doctype(dtype,html(attrs, *args))
+      args.push(attrs)
+      doctype(dtype,html(*args))
     end
+
+		def container(tag, css, *args)
+      args.push(Proc.new) if block_given?
+      args.push(:class => css)
+			jig = element_with_id(tag, *args)
+      jig.send(:extra)[:css] = css
+      jig
+		end
+
+		def divc(css_class, *args, &block)
+			container(:div, css_class, *args, &block)
+		end
+
 
     def link_favicon(extra={})
       attrs = {:type=>"image/x-icon", :rel=>"icon", :src=>'/favicon.ico'}
@@ -94,29 +81,38 @@ class Jig
       link!(attrs)
     end
 
-    def normalize_args(args=[], attrs={}, &block)
-      attrs.merge! args.shift if Hash === args.first
-      args.push block if block
-      args.push GAP if args.empty?
-      args.unshift attrs
-      args
+    def normalize_args(args, attrs={})
+      attrs.merge!(args.pop) if args.last.respond_to?(:fetch)
+      args.push(Proc.new) if block_given?
+      args.push INNER if args.empty?
+      return args, attrs
     end
 
     def style(*args, &block)
-      attrs, *args = normalize_args(args, :type=>"text/css", :media=>"all", &block)
-      p attrs
-      p args
-      args.push "\n"
-      script(attrs, !attrs.has_key?(:src) && cdata(*args))
+      attrs = {:type=>"text/css", :media=>"all"}
+      attrs.merge!(args.pop) if args.last.respond_to?(:fetch) 
+      args.push(Proc.new) if block_given?
+      if attrs.has_key?(:src)
+        args = [attrs]
+      else
+        args = [cdata(*args.push("\n")), attrs]
+      end
+      script(*args)
     end
 
     def script(*args, &block)
-      attrs, *args = normalize_args(args, &block)
-      element(:script, attrs, !attrs.has_key?(:src) && new(*args))
+      attrs = args.pop if args.last.respond_to?(:fetch) 
+      args.push(Proc.new) if block_given?
+      if attrs.has_key?(:fetch)
+        args = [attrs]
+      else
+        args.push(attrs)
+      end
+      element(:script, *args)
     end
 
 		def input(*args, &block)
-			empty_with_id(:input, *args, &block)
+			element_with_id!(:input, *args, &block)
 		end
 		def textarea(*args, &block)
 			element_with_id(:textarea, *args, &block)
@@ -129,7 +125,25 @@ class Jig
 			body = div_with_id({:style => 'display: none'}, bjig)
 			new(a({:href=>"#", :onclick => "toggle(#{body.eid})"}, '(details)'), body)
 		end
+
+    def js_comment(*args, &block)
+      gap = Jig::Gap.new(:comment) { |*filling| 
+        filling.map {|item| 
+          item.to_s.split("\n").map {|line| "// #{line}" }
+        }.join("\n")
+      }
+      new(gap, "\n").plug(:comment, *args)
+    end
+
+    def js_mlcomment(*args, &block)
+      new("/*\n", new(*args, &block), "\n */\n")
+    end
+
+    def javascript(*args, &block)
+      attrs = {:type=>"text/javascript", :language=>"JavaScript"}
+      attrs.merge!(args.pop) if args.last.respond_to?(:fetch) 
+      args.push(Proc.new) if block_given?
+      script("//<![CDATA[\n", new(*args), "\n//]]>\n", attrs)
+    end
 	end
-
-
 end

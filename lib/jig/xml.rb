@@ -4,12 +4,18 @@ class Jig
 	module XML
 		# Element ID: 
 		def push_hash(hash)
-			push(*hash.map { |k,v| to_attr(k, v) })
+			push(*hash.map { |k,v| self.class.attribute(k, v) })
 		end
 		protected :push_hash
 
+	end
+
+  module XML::ClassMethods
+    Newlines = [:html, :head, :body, :title, :div, :p, :table, :script, :form]
+		Encode = Hash[*%w{& amp " quot > gt < lt}]
+
 		# Convert the name, value pair into an attribute gap.
-		def to_attr(aname, value)
+		def attribute(aname, value)
 			if Symbol === value
 				Gap.new(value) { |fill| aplug(aname, fill) }
 			elsif Gap === value
@@ -18,7 +24,8 @@ class Jig
 				aplug(aname, value)
 			end
 		end
-		private :to_attr
+    module_function :attribute
+    public :attribute
 
 		# If value is false, return null string.
 		# Otherwise render name and value as an XML attribute pair:
@@ -44,15 +51,10 @@ class Jig
 			future
 		end
 		private :aplug
-	end
+    module_function :aplug
 
-  module XML::ClassMethods
-		Cache = {}
-    Cache2 = {}
-    Cache3 = {}
-    Cache4 = {}
-    Newlines = [:html, :head, :body, :title, :div, :p, :table, :script, :form]
-		Encode = Hash[*%w{& amp " quot > gt < lt}]
+    ATTRS = Gap::ATTRS
+    ATTRS_GAP = Gap.new(ATTRS) { |h| h && h.map { |k,v| attribute(k, v) } }
 
 	  def escape(target)
 		  unless Jig === target 
@@ -61,61 +63,83 @@ class Jig
 		  target
 	  end
 
-		# Construct a jig for an HTML element with _tag_ as the tag.
-		def element(tag='div', *args, &block)
+    Element_Cache = {}
+    def _element(tag)
       whitespace = Newlines.include?(tag.to_sym) && "\n" || ""
-			args.push block if block
-			items = (Cache[tag] ||= [%Q{<#{tag}>#{whitespace}}.freeze, "</#{tag}>\n".freeze]).dup
-			if Hash === args.first
-		  	attrs = args.shift 
-		   	items[0,1] = (Cache4[tag] ||= ["<#{tag}".freeze, ">#{whitespace}".freeze]).dup
-		   	items[1,0] = attrs
-			end
-			if args.empty?
-				items[-1,0] = GAP
+      Element_Cache[tag] ||= begin
+        new("<#{tag}".freeze, ATTRS_GAP, ">#{whitespace}".freeze, INNER, "</#{tag}>\n".freeze).freeze
+      end
+    end
+
+    Empty_Element_Cache = {}
+    def _element!(tag)
+      Empty_Element_Cache[tag] ||= begin
+        new("<#{tag}".freeze, ATTRS_GAP, "/>\n".freeze).freeze
+      end
+    end
+
+		# Construct an HTML element using the method name as the element tag.
+		def method_missing(symbol, *args, &block)
+      constructor = :element
+			text = symbol.to_s
+			if text =~ /_with_id!*$/
+				element_with_id(text.sub(/_with_id!*$/,'').to_sym, *args, &block)
 			else
-		  	items[-1,0] = args
+        if text =~ /!$/
+          text.chop!
+          constructor = :element!
+        end
+				if text =~ /_$/		# alternate for clashes with existing methods
+					text.chop!
+        end
+				if text =~ /_/
+					# Single _ gets converted to : for XML name spaces
+					# Double _ gets converted to single _
+					text = text.gsub(/([^_])_([^_])/){|x| "#{$1}:#{$2}"}.gsub(/__/, '_')
+				end
+			  send(constructor, text, *args, &block)
 			end
-		  new(*items)
 		end
+
+		# Construct a jig for an HTML element with _tag_ as the tag.
+		def element(tag='div', *args)
+      attrs = args.last.respond_to?(:fetch) && args.pop || nil
+      args.push(lambda{|*x| yield(*x) }) if block_given?
+      _element(tag).plug(ATTRS => attrs, INNER => args)
+    end
 
 		# Construct a jig for an empty HTML element with _tag_ as the tag.
-		def empty(tag, *args, &block)
-			args.push block if block
-			if args.empty?
-        items = (Cache2[tag] ||= ["<#{tag}/>\n".freeze]).dup
-			else
-        items = (Cache3[tag] ||= ["<#{tag}".freeze, "/>\n".freeze]).dup
-		  	items[-1,0] = args
-			end
-		  new(*items)
+		def element!(tag, *args)
+      attrs = args.last.respond_to?(:fetch) && args.pop || nil
+      args.push(lambda{|*x| yield(*x) }) if block_given?
+      _element!(tag).plug(ATTRS => attrs, INNER => args)
 		end
 
-    def xml(*args, &block)
+    def xml(*args)
 			attrs = { :version => '1.0' }
-			attrs.merge! args.shift if Hash === args.first
-      new("<?xml", attrs, "?>\n", new(*args, &block))
+      attrs.merge!(args.pop) if args.last.respond_to?(:fetch) 
+      args.push(lambda{|*x| yield(*x) }) if block_given?
+      new("<?xml", attrs, "?>\n", *args)
     end
 
-    def cdata(*args, &block)
-      args.push block if block
-      args.push GAP if args.empty?
-      args.unshift "<![CDATA[\n"
-      args.push " ]]>\n"
-      new(*args)
+    Cache = {}
+    def cdata(*args)
+      args.push(lambda{|*x| yield(*x) }) if block_given?
+      args.push INNER if args.empty?
+      jig = (Cache[:cdata] ||= new("<![CDATA[\n".freeze, INNER, " ]]>\n".freeze).freeze)
+      jig.plug *args
     end
 
-    def comment(*args, &block)
-      args.push block if block
-      args.push GAP if args.empty?
-      args.unshift "<!-- "
-      args.push " -->\n"
-      new(*args)
+    def comment(*args)
+      args.push(lambda{|*x| yield(*x) }) if block_given?
+      args.push INNER if args.empty?
+      jig = (Cache[:comment] ||= new("<!-- ".freeze, INNER, " -->\n".freeze).freeze)
+      jig.plug *args
     end
 
-    def comments(*args, &block)
-      args.push block if block
-      args.push GAP if args.empty?
+    def comments(*args)
+      args.push(lambda{|*x| yield(*x) }) if block_given?
+      args.push INNER if args.empty?
       args.push "\n"
       comment("\n", *args)
     end
