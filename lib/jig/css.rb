@@ -1,19 +1,40 @@
+
 require 'jig'
 
 class Jig
-	module XML
+	module CSS
 		# Element ID: 
 		def push_hash(hash)
 			push(*hash.map { |k,v| self.class.attribute(k, v) })
 		end
 		protected :push_hash
 
+    def plist(plist)
+      declarations = plist.map { |k,v| "#{k}: #{v}; " }.join
+      before(:__p, declarations)
+    end
+
 	end
 
-  module XML::ClassMethods
+  module CSS::ClassMethods
     Newlines = [:html, :head, :body, :title, :div, :p, :table, :script, :form]
 		Encode = Hash[*%w{& amp " quot > gt < lt}]
 
+    def rule(selector=nil, plist=nil)
+      base = new(:__s, ' {', :__p, '}')
+      declarations = plist && plist.map { |k,v| "#{k}: #{v}; " }.join
+      base = base.before(:__s, selector) if selector
+      base = base.before(:__p, declarations) if declarations
+      base
+    end
+
+    def method_missing(sym, *args)
+      rule(sym.to_s, *args)
+    end
+
+  end
+end
+=begin
 		# Convert the name, value pair into an attribute gap.
 		def attribute(aname, value)
 			if Symbol === value
@@ -105,7 +126,6 @@ class Jig
 		def element(tag='div', *args)
       attrs = args.last.respond_to?(:fetch) && args.pop || nil
       args.push(lambda{|*x| yield(*x) }) if block_given?
-      args.push INNER if args.empty?
       _element(tag).plug(ATTRS => attrs, INNER => args)
     end
 
@@ -113,7 +133,6 @@ class Jig
 		def element!(tag, *args)
       attrs = args.last.respond_to?(:fetch) && args.pop || nil
       args.push(lambda{|*x| yield(*x) }) if block_given?
-      args.push INNER if args.empty?
       _element!(tag).plug(ATTRS => attrs, INNER => args)
 		end
 
@@ -147,3 +166,4 @@ class Jig
     end
   end
 end
+=end

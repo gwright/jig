@@ -20,7 +20,7 @@ class Jig
 		# an ID attribute with a guaranteed unique value.
 		def element_with_id(tag, *args)
 			attrs = { 'id' => :id }
-			attrs = attrs.merge!(args.pop) if args.last.respond_to?(:has_key?)
+			attrs = attrs.merge!(args.pop) if args.last.respond_to?(:fetch)
       args.push(Proc.new) if block_given?
       args.push attrs
 			newjig = element(tag, *args)
@@ -32,7 +32,7 @@ class Jig
 		# an ID attribute with a guaranteed unique value.
 		def element_with_id!(tag, *args)
 			attrs = { 'id' => :id }
-			attrs = attrs.merge!(args.pop) if args.last.respond_to?(:has_key?)
+			attrs = attrs.merge!(args.pop) if args.last.respond_to?(:fetch)
       args.push(Proc.new) if block_given?
       args.push attrs
       jig = element!(tag, *args)
@@ -47,6 +47,8 @@ class Jig
     }
 
     def doctype(dtype, *args, &block)
+      p 'doctype'
+      p args
       new(%{<!DOCTYPE html PUBLIC #{DOCTYPES.fetch(dtype)}>\n}, *args, &block)
     end
 
@@ -59,6 +61,8 @@ class Jig
       args.push(Proc.new) if block_given?
       args.push(head(title(:title),:head),body) if args.empty?
       args.push(attrs)
+      p 'xhtml'
+      p args
       doctype(dtype,html(*args))
     end
 

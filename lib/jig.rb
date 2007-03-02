@@ -85,6 +85,7 @@ Attributes can be specified with a hash:
 class Jig
   autoload(:XML, "jig/xml")
   autoload(:XHTML, "jig/xhtml")
+  autoload(:CSS, "jig/css")
   VERSION = '0.8.0'
   GapPattern = "[a-zA-Z_/][a-zA-Z0-9_/]*"
 
@@ -150,8 +151,12 @@ class Jig
   #   Jig.new.full?            # false
   #   Jig.new('a').full?       # true
   #   Jig.new.plug('a').full?  # true
-  def full?
+  def closed?
     gaps.empty?
+  end
+
+  def open?
+    !closed?
   end
 
   # Returns _true_ if the jig has no gaps and corresponds to the empty string.
@@ -159,7 +164,7 @@ class Jig
   #   Jig.new(nil).empty?      # true
   #   Jig.new.plug("").empty?  # true
   def null?
-    full? && to_s.empty?
+    closed? && to_s.empty?
   end
 
   # Returns the number of remaining gaps in the jig.
@@ -567,7 +572,7 @@ class Jig
 
   # Duplicate the current jig and then fill any gaps specified by pairs via
   # _plug_all!_.
-  def plug_all(pairs)
+  def plug_all(pairs={})
     dup.plug_all!(pairs)
   end
 
@@ -630,7 +635,7 @@ class Jig
       when Gap
         list.push fill
       when Array
-        insert[match, Jig[*fill]]
+        insert[match, Jig[nil, *fill]]
       else
         contents[match, 2] = [contents[match,2].insert(1, fill)]
         list
@@ -676,7 +681,7 @@ class Jig
   end
   protected :push_jig
 
-  Null = null.freeze
+  #Null = null.freeze
 
   class <<self
     GapStart = '(a:|:|\{)'
