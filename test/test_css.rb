@@ -22,22 +22,23 @@ class Cjig
     include Asserts
     def setup
       @div = Cjig.rule('div')
+      @gaps = [:__s, :__ps, :__p]
     end
     def test_empty_rule
       assert_as_string(' {}', Cjig.rule, 'no selector')
-      assert_equal([:__s, :__p], Cjig.rule.gap_list, 'two gaps with new rule')
+      assert_equal(@gaps, Cjig.rule.gap_list, 'two gaps with new rule')
     end
 		def test_rule
       assert_as_string('div {}', Cjig.rule('div'), 'type selector')
       assert_as_string('div p {}', Cjig.rule('div p'), 'string as selector')
-      assert_equal([:__s, :__p], Cjig.rule('div').gap_list, 'selector and plist gaps available')
+      assert_equal(@gaps, Cjig.rule('div').gap_list, 'selector and plist gaps available')
     end
 
     def test_plist
       assert_as_string('div {color: red; }', Cjig.rule('div', :color => 'red'), 'explicit plist')
       red = Cjig.rule('div').plist(:color => 'red')
       assert_as_string('div {color: red; }', red, 'added plist')
-      assert_equal([:__s, :__p], red.gap_list, 'plist leaves gaps')
+      assert_equal(@gaps, red.gap_list, 'plist leaves gaps')
       background, color = 'background: olive; ', 'color: red; '
       assert_as_string(/div \{(#{color}#{background}|#{background}#{color})\}/, 
         @div.plist(:color => 'red', :background => 'olive'),
@@ -54,7 +55,7 @@ class Cjig
 
     def test_method_missing
       assert_as_string('div {}', Cjig.div, 'unknown method generates type selector')
-      assert_equal([:__s, :__p], Cjig.div.gap_list, 'unknown method generates rule jig')
+      assert_equal(@gaps, Cjig.div.gap_list, 'unknown method generates rule jig')
     end
 
     def test_universal_selector
@@ -65,34 +66,60 @@ class Cjig
       assert_as_string(' {}', Cjig.___ , 'empty selector')
     end
     def test_descendent_selector
-      assert_as_string('p li {}', Cjig.p >> Cjig.li , 'descendent selector')
+      assert_as_string('h1 li {}', Cjig.h1 >> Cjig.li , 'descendent selector')
     end
 
     def test_child_selector
-      assert_as_string('div>p {}', Cjig.div > Cjig.p, 'child selector')
+      assert_as_string('div>h1 {}', Cjig.div > Cjig.h1, 'child selector')
     end
 
     def test_sibling_selector
-      assert_as_string('div+p {}', Cjig.div + Cjig.p, 'sibling selector')
+      assert_as_string('div+h1 {}', Cjig.div + Cjig.h1, 'sibling selector')
     end
 
     def test_id_selector
-      assert_as_string('div#home {}', Cjig.div - Cjig.home, 'id selector')
+      assert_as_string('div#home {}', Cjig.div * Cjig.home, 'id selector')
     end
-    def test_id_selector
-      assert_as_string('#home {}', -Cjig.home, 'id selector')
+
+    def test_pseudo_selector
+      assert_as_string('div:home {}', Cjig.div % Cjig.home, 'pseudo selector')
     end
+
     def test_class_selector
-      assert_as_string('p.urgent {}', Cjig.p.urgent, 'class selector')
+      assert_as_string('h1.urgent {}', Cjig.h1.urgent, 'class selector')
     end
     def test_attribute_selector
-      assert_as_string('p[class] {}', Cjig.p['class'], 'attribute selector')
+      assert_as_string('h1[class] {}', Cjig.h1['class'], 'attribute selector')
     end
     def test_exact_attribute_selector
-      assert_as_string('p[class="urgent"] {}', Cjig.p['class' => "urgent"], 'exact attribute selector')
+      assert_as_string('h1[class="urgent"] {}', Cjig.h1['class' => "urgent"], 'exact attribute selector')
     end
     def test_partial_attribute_selector
-      assert_as_string('p[class~="urgent"] {}', Cjig.p['class' => /urgent/], 'partial attribute selector')
+      assert_as_string('h1[class~="urgent"] {}', Cjig.h1['class' => /urgent/], 'partial attribute selector')
+    end
+
+    def test_selector_list
+      assert_as_string('h1, h2 {}', Cjig.h1 << Cjig.h2, 'selector list')
+    end
+
+    def test_units
+      units = [:in, :cm, :mm, :pt, :pc, :em, :ex, :px]
+      units.each {|u| assert_equal("1#{u}", 1.send(u)) }
+      assert_equal("50%", 50.pct)
+      assert_equal("50.00%", 0.5.pct)
+      assert_equal("99.99%", 0.9999.pct)
+    end
+
+    def test_plist_merge
+      div = Cjig.div 
+      h1 = Cjig.h1(:color => 'red')
+      result = div * h1
+      pairs = [[:>>, ' '], [:>, '>'], [:+, '+'], [:*, '#'], [:%, ':']]
+      pairs.each { |op, text|
+        assert_as_string("div#{text}h1 {color: red; }", div.send(op, h1))
+      }
+      assert_as_string("div[onclick] {color: red; }", div['onclick'] ^ {:color => 'red'})
+      assert_as_string("div[onclick] {color: red; }", div['onclick'].^(:color => 'red'))
     end
 	end
 end
