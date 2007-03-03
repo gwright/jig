@@ -196,6 +196,32 @@ class Jig
     end
   end
 
+  # call-seq:
+  #   jig * int    -> a_jig
+  #   jig * array  -> a_jig
+  #
+  # With an integer argument, a new jig is constructed by concatenating
+  # *int* copies of *self*.
+  #   three = Jig.new * 3      # Jig[:___, :___, :___]
+  #   puts three.plug('3')     # "333"
+  # With an array argument, the elements of the array are used to plug
+  # the default gap. The resulting jigs are concatenated
+  # to form the final result:
+  #   item = Jig["- ", :___, "\n"]
+  #   list = item * [1,2,3]
+  #   puts list               # "- 1\n- 2\n- 3\n"
+  def mult(other)
+    case other
+    when Integer
+      raise ArgumentError, "count must be greater than zero" if other < 1
+      (1...other).inject(dup)  { |j,i| j.push_jig(self) }
+    when Array
+      other.inject(Jig.null) { |j,x| j.concat( plug(x) ) }
+    else
+      raise ArgumentError, "other operand for * must be Integer or Array, was #{other.class})"
+    end
+  end
+
   class <<self
     alias [] :new
 
@@ -273,32 +299,6 @@ class Jig
     self
   end
 
-
-  # call-seq:
-  #   jig * int    -> a_jig
-  #   jig * array  -> a_jig
-  #
-  # With an integer argument, a new jig is constructed by concatenating
-  # *int* copies of *self*.
-  #   three = Jig.new * 3      # Jig[:___, :___, :___]
-  #   puts three.plug('3')     # "333"
-  # With an array argument, the elements of the array are used to plug
-  # the default gap. The resulting jigs are concatenated
-  # to form the final result:
-  #   item = Jig["- ", :___, "\n"]
-  #   list = item * [1,2,3]
-  #   puts list               # "- 1\n- 2\n- 3\n"
-  def *(other)
-    case other
-    when Integer
-      raise ArgumentError, "count must be greater than zero" if other < 1
-      (1...other).inject(dup)  { |j,i| j.push_jig(self) }
-    when Array
-      other.inject(Jig.null) { |j,x| j.concat( plug(x) ) }
-    else
-      raise ArgumentError, "other operand for * must be Integer or Array, was #{other.class})"
-    end
-  end
 
   # Create a new jig formed by inserting a copy of the current jig between each
   # element of the array.  The elements of the array are treated like plug arguments.
@@ -785,6 +785,11 @@ class Jig
     def [](*args)
       slice(*args)
     end
+
+    def *(*args)
+      mult(*args)
+    end
+
   end
 
   module Proxy
