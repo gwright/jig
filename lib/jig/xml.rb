@@ -71,6 +71,11 @@ class Jig
       end
     end
 
+    def _anonymous(tag)
+      whitespace = Newlines.include?(tag.to_sym) && "\n" || ""
+      new("<", tag.to_sym, ATTRS_GAP, ">#{whitespace}", INNER, "</", tag.to_sym, ">\n")
+    end
+
     Empty_Element_Cache = {}
     def _element!(tag)
       Empty_Element_Cache[tag] ||= begin
@@ -85,9 +90,12 @@ class Jig
 			if text =~ /_with_id!*$/
 				element_with_id(text.sub(/_with_id!*$/,'').to_sym, *args, &block)
 			else
-        if text =~ /!$/
+        if text =~ /!\z/
           text.chop!
           constructor = :element!
+        elsif text =~ /\?\z/
+          text.chop!
+          constructor = :anonymous
         end
 				if text =~ /_$/		# alternate for clashes with existing methods
 					text.chop!
@@ -100,6 +108,14 @@ class Jig
 			  send(constructor, text, *args, &block)
 			end
 		end
+
+		# Construct a jig for an HTML element with _tag_ as the tag.
+		def anonymous(tag='div', *args)
+      attrs = args.last.respond_to?(:fetch) && args.pop || nil
+      args.push(lambda{|*x| yield(*x) }) if block_given?
+      args.push INNER if args.empty?
+      _anonymous(tag).plug(ATTRS => attrs, INNER => args)
+    end
 
 		# Construct a jig for an HTML element with _tag_ as the tag.
 		def element(tag='div', *args)
