@@ -46,6 +46,9 @@ class Cjig
       assert_as_string('div {color: red; background: olive; }', 
         @div.plist(:color => 'red').plist(:background => 'olive'),
         'plist twice')
+
+      blue = Cjig.rule('div') ^ {:color => 'blue'}
+      assert_as_string('div {color: blue; }', blue, 'plist merge via ^')
     end
 
     def test_open?
@@ -70,11 +73,11 @@ class Cjig
     end
 
     def test_child_selector
-      assert_as_string('div>h1 {}', Cjig.div > Cjig.h1, 'child selector')
+      assert_as_string('div > h1 {}', Cjig.div > Cjig.h1, 'child selector')
     end
 
     def test_sibling_selector
-      assert_as_string('div+h1 {}', Cjig.div + Cjig.h1, 'sibling selector')
+      assert_as_string('div + h1 {}', Cjig.div + Cjig.h1, 'sibling selector')
     end
 
     def test_id_selector
@@ -97,9 +100,12 @@ class Cjig
     def test_partial_attribute_selector
       assert_as_string('h1[class~="urgent"] {}', Cjig.h1['class' => /urgent/], 'partial attribute selector')
     end
+    def test_language_attribute_selector
+      assert_as_string('h1[lang|="lc"] {}', Cjig.h1[:lang => /lc/], 'language attribute selector')
+    end
 
     def test_selector_list
-      assert_as_string('h1, h2 {}', Cjig.h1 << Cjig.h2, 'selector list')
+      assert_as_string('h1, h2 {}', Cjig.h1 < Cjig.h2, 'selector list')
     end
 
     def test_units
@@ -114,7 +120,7 @@ class Cjig
       div = Cjig.div 
       h1 = Cjig.h1(:color => 'red')
       result = div * h1
-      pairs = [[:>>, ' '], [:>, '>'], [:+, '+'], [:*, '#'], [:%, ':']]
+      pairs = [[:>>, ' '], [:>, ' > '], [:+, ' + '], [:*, '#'], [:%, ':']]
       pairs.each { |op, text|
         assert_as_string("div#{text}h1 {color: red; }", div.send(op, h1))
       }

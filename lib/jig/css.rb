@@ -25,14 +25,16 @@ class Jig
       Float.send(:include, FloatHelper)
     end
 
-		# Element ID: 
-		def push_hash(hash)
-			push(*hash.map { |k,v| self.class.attribute(k, v) })
-		end
-		protected :push_hash
-
     def plist(plist=nil)
-      declarations = plist && plist.inject([]) { |d, (k,v)| d << "#{k}: #{v}; " }
+      declarations = plist && plist.inject([]) { |d, (k,v)| 
+        k = k.to_s.tr('_','-')
+        case v
+        when String
+         d << "#{k}: #{v}; "
+        when Array
+         d << "#{k}: #{v.join(', ')}; "
+        end
+      }
       if plist
         before(:__p, *declarations) 
       else
@@ -45,11 +47,11 @@ class Jig
     # 
     #   (div > p).to_s     # 'div > p {}'
     def >(other)
-      before(:__s, ">", other.slice(0)).before(:__p, other.slice(2))
+      before(:__s, " > ", other.slice(0)).before(:__p, other.slice(2))
     end
 
     def +(other)
-      before(:__s, "+", other.slice(0)).before(:__p, other.slice(2))
+      before(:__s, " + ", other.slice(0)).before(:__p, other.slice(2))
     end
 
     def *(other)
@@ -64,12 +66,12 @@ class Jig
       before(:__s, " ", other.slice(0)).before(:__p, other.slice(2))
     end
 
-    def <<(other)
+    def group(other)
       before(:__s, ", ", other.slice(0)).before(:__p, other.slice(2))
     end
 
-    def ^(plist)
-      plist(plist)
+    def ^(pl)
+      plist(pl)
     end
 
     def method_missing(sym, plist=nil)
@@ -83,10 +85,11 @@ class Jig
         when String
           before(:__s, %Q{[#{k}="#{v}"]})
         when Regexp
+          v = v.to_s.split(':').last.chop    # strip out the processing flags
           if k.to_s == 'lang'
             before(:__s, %Q{[lang|="#{v}"]})
           else
-            before(:__s, %Q{[#{k}~="#{v.to_s.split(':').last.chop}"]})
+            before(:__s, %Q{[#{k}~="#{v}"]})
           end
         else
           self
@@ -117,6 +120,10 @@ class Jig
 
     def ___
       rule
+    end
+
+    def group(*selectors)
+      selectors.inject {|list, sel| list.group(sel) }
     end
 
     def method_missing(sym, *args)

@@ -23,5 +23,15 @@ Spec::Rake::SpecTask.new('rcov-rspec') do |t|
   t.rcov = true
 end
 
+# RCOV command, run as though from the commandline.  Amend as required or perhaps move to config/environment.rb?
+RCOV = "rcov"
+
+desc "generate a unit test coverage report in coverage/unit; see coverage/unit/index.html afterwards"
+task :rcov do
+  tests = FileList['test/test_*.rb']
+  sh "#{RCOV} -Ilib #{tests}"
+end
+
+
 
 # vim: syntax=Ruby

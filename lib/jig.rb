@@ -439,7 +439,7 @@ class Jig
     _plugn!(index, *more)
   end
 
-  def ^(items)
+  def multn(items)
     (0...[gaps.size,items.size].min).inject(self) { |j,i|
       j.plugn 0, items[i]
     }
@@ -788,6 +788,10 @@ class Jig
 
     def *(*args)
       mult(*args)
+    end
+
+    def ^(*args)
+      multn(*args)
     end
 
   end
