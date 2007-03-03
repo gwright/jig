@@ -47,8 +47,6 @@ class Jig
     }
 
     def doctype(dtype, *args, &block)
-      p 'doctype'
-      p args
       new(%{<!DOCTYPE html PUBLIC #{DOCTYPES.fetch(dtype)}>\n}, *args, &block)
     end
 
@@ -61,8 +59,6 @@ class Jig
       args.push(Proc.new) if block_given?
       args.push(head(title(:title),:head),body) if args.empty?
       args.push(attrs)
-      p 'xhtml'
-      p args
       doctype(dtype,html(*args))
     end
 

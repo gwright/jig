@@ -56,5 +56,43 @@ class Cjig
       assert_as_string('div {}', Cjig.div, 'unknown method generates type selector')
       assert_equal([:__s, :__p], Cjig.div.gap_list, 'unknown method generates rule jig')
     end
+
+    def test_universal_selector
+      assert_as_string('* {}', Cjig.us, 'universal selector')
+    end
+
+    def test_empty_selector
+      assert_as_string(' {}', Cjig.___ , 'empty selector')
+    end
+    def test_descendent_selector
+      assert_as_string('p li {}', Cjig.p >> Cjig.li , 'descendent selector')
+    end
+
+    def test_child_selector
+      assert_as_string('div>p {}', Cjig.div > Cjig.p, 'child selector')
+    end
+
+    def test_sibling_selector
+      assert_as_string('div+p {}', Cjig.div + Cjig.p, 'sibling selector')
+    end
+
+    def test_id_selector
+      assert_as_string('div#home {}', Cjig.div - Cjig.home, 'id selector')
+    end
+    def test_id_selector
+      assert_as_string('#home {}', -Cjig.home, 'id selector')
+    end
+    def test_class_selector
+      assert_as_string('p.urgent {}', Cjig.p.urgent, 'class selector')
+    end
+    def test_attribute_selector
+      assert_as_string('p[class] {}', Cjig.p['class'], 'attribute selector')
+    end
+    def test_exact_attribute_selector
+      assert_as_string('p[class="urgent"] {}', Cjig.p['class' => "urgent"], 'exact attribute selector')
+    end
+    def test_partial_attribute_selector
+      assert_as_string('p[class~="urgent"] {}', Cjig.p['class' => /urgent/], 'partial attribute selector')
+    end
 	end
 end

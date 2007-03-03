@@ -188,7 +188,13 @@ class Jig
     gaps.find {|x| x.name == gap_name }
   end
 
-  alias [] :has_gap?
+  def slice(index)
+    if Integer === index
+      contents[index]
+    else
+      has_gap?(index)
+    end
+  end
 
   class <<self
     alias [] :new
@@ -267,20 +273,6 @@ class Jig
     self
   end
 
-  # call-seq:
-  #   jig + obj -> a_jig
-  #
-  # Duplicate the current jig then use concat to add _obj_.
-  #   j = Jig[1, :alpha]
-  #   j + 2                     # Jig[1, :alpha, 2]
-  #   j + :beta                 # Jig[1, :alpha, :beta]
-  #   j + Jig[:beta]            # Jig[1, :alpha, :beta]
-  #   j + [3,4]                 # Jig[1, :alpha, 3, 4]
-  #   j + [Jig.new, Jig.new]    # Jig[1, :alpha, :___, :___]
-  #   j + Jig[:beta] * 2        # Jig[1, :alpha, :beta, :beta]
-  def +(obj)
-    dup.concat(obj)
-  end
 
   # call-seq:
   #   jig * int    -> a_jig
@@ -762,7 +754,10 @@ class Jig
     def enable(*features)
       features.map do |f|
         begin
-          extend Jig.const_get(f)::ClassMethods
+          begin
+            extend Jig.const_get(f)::ClassMethods
+          rescue NameError
+          end
           include Jig::const_get(f)
           f
         rescue
@@ -772,9 +767,31 @@ class Jig
     end
   end
 
+  module Base
+    # call-seq:
+    #   jig + obj -> a_jig
+    #
+    # Duplicate the current jig then use concat to add _obj_.
+    #   j = Jig[1, :alpha]
+    #   j + 2                     # Jig[1, :alpha, 2]
+    #   j + :beta                 # Jig[1, :alpha, :beta]
+    #   j + Jig[:beta]            # Jig[1, :alpha, :beta]
+    #   j + [3,4]                 # Jig[1, :alpha, 3, 4]
+    #   j + [Jig.new, Jig.new]    # Jig[1, :alpha, :___, :___]
+    #   j + Jig[:beta] * 2        # Jig[1, :alpha, :beta, :beta]
+    def +(obj)
+      dup.concat(obj)
+    end
+    def [](*args)
+      slice(*args)
+    end
+  end
+
   module Proxy
     def method_missing(*a, &b)
       Jig.send(*a, &b)
     end
   end
 end
+
+Jig.enable :Base

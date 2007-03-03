@@ -14,18 +14,82 @@ class Jig
       before(:__p, declarations)
     end
 
+    # Construct a selector with the current selector as the parent
+    # and the other selector as the child.
+    # 
+    #   (div > p).to_s     # 'div > p {}'
+    def >(other)
+      before(:__s, ">", other.slice(0))
+    end
+
+    def +(other)
+      p other
+      before(:__s, "+", other.slice(0))
+    end
+
+    def -(other)
+      before(:__s, "#", other.slice(0))
+    end
+
+    def -@
+      self.class.new("#", self)
+    end
+
+    def >>(other)
+      before(:__s, " ", other.slice(0))
+    end
+
+    def method_missing(sym)
+      if sym.to_s =~ /\A_(.*)/
+        before(:__s, ":#{$1}")
+      else
+        before(:__s, ".#{sym}")
+      end
+    end
+
+    def [](*args)
+      if args.size == 1 && args.first.respond_to?(:to_hash) && args.first.size == 1
+        k,v = *args.first.to_a.first
+        case v
+        when String
+          before(:__s, %Q{[#{k}="#{v}"]})
+        when Regexp
+          if k.to_s == 'lang'
+            before(:__s, %Q{[lang|="#{v}"]})
+          else
+            before(:__s, %Q{[#{k}~="#{v.to_s.split(':').last.chop}"]})
+          end
+        else
+          self
+        end
+      elsif args.size == 1 && args.first.respond_to?(:to_s)
+        before(:__s, "[#{args.first}]")
+      else
+        self
+      end
+    end
+
 	end
 
   module CSS::ClassMethods
     Newlines = [:html, :head, :body, :title, :div, :p, :table, :script, :form]
 		Encode = Hash[*%w{& amp " quot > gt < lt}]
 
-    def rule(selector=nil, plist=nil)
+    def rule(selector="", plist=nil)
       base = new(:__s, ' {', :__p, '}')
       declarations = plist && plist.map { |k,v| "#{k}: #{v}; " }.join
       base = base.before(:__s, selector) if selector
       base = base.before(:__p, declarations) if declarations
       base
+    end
+
+    # Generate a universal selector rule
+    def us(*args)
+      rule('*', *args)
+    end
+
+    def ___
+      rule
     end
 
     def method_missing(sym, *args)
