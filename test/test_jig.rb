@@ -1,9 +1,7 @@
 require 'jig'
 require 'test/unit'
 
-class Xjig < Jig
-  enable :XML, :XHTML, :JavaScript
-end
+Xjig = Jig.derive(:XML, :XHTML, :JavaScript)
 
 module XjigTest
 	def assert_similar(a,b, mess="")

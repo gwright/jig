@@ -102,7 +102,9 @@ class CSS
 
     def test_selector_list
       assert_as_string('h1, h2 {}', CSS.h1.group(CSS.h2), 'selector list')
-      assert_as_string('h1, h2, h3 {}', CSS.h1.group(CSS.h2, CSS.h3), 'selector list')
+      assert_as_string('h1, h2 {}', CSS.h1 & CSS.h2, 'selector list operator')
+      assert_as_string('h1, h2, h3 {}', CSS.h1.group(CSS.h2).group(CSS.h3), 'selector list')
+      assert_as_string('h1 {}', CSS.rule & CSS.h1, 'adding to an empty list')
     end
 
     def test_units
@@ -138,5 +140,6 @@ class CSS
       assert_as_string("", CSS.div.declarations)
       assert_as_string("color: red; ", (CSS.div |{'color' => 'red'}).declarations)
     end
+
 	end
 end

@@ -66,19 +66,18 @@ class Jig
       before(:__s, " ", other.selector).before(:__p, other.declarations)
     end
 
-    def merge(other)
+    def group(other)
+      sep = selector.null? ? "" : ", "
       case other
       when self.class
-        before(:__s, ", ", other.selector).before(:__p, other.declarations)
+        before(:__s, sep, other.selector).before(:__p, other.declarations)
       else
-        before(:__s, ", ", other)
+        before(:__s, sep, other)
       end
     end
 
-    def group(*others)
-      others.inject(self) { |jig, other|
-        jig.before(:__s, ", ", other.selector).before(:__p, other.declarations)
-      }
+    def &(other)
+      group(other)
     end
 
     def |(pl)
@@ -126,7 +125,7 @@ class Jig
     Newlines = [:html, :head, :body, :title, :div, :p, :table, :script, :form]
 		Encode = Hash[*%w{& amp " quot > gt < lt}]
 
-    def rule(selector="", plist=nil)
+    def rule(selector=nil, plist=nil)
       #base = (@_rule ||= new(:__s, " {\n", :__ps, :__p, "}").freeze)
       base = (@_rule ||= new(:__s, " {", :__ps, :__p, "}").freeze)
       #base & selector | plist

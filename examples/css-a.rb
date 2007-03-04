@@ -10,8 +10,8 @@ body_plist = {
 }
 sheet = CSS.instance_eval {[
   body(         body_plist),
-  us*'navbar'     |{:width => 500.px},
-  us.navitem      |{:color => 'red'},
+  rule*'navbar'     |{:width => 500.px},
+  rule.navitem      |{:color => 'red'},
   a%hover           |{:text_decoration => 'underline'},
   div*menu          |{:background => 'green'},
   div.foo           |{:background => 'red'},
