@@ -188,6 +188,13 @@ class Jig
     gaps.find {|x| x.name == gap_name }
   end
 
+  # Returns the position of the named gap or nil if the gap
+  # is not found.
+  def index(name)
+    gaps.each_with_index {|g,i| return i if g.name == name }
+    nil
+  end
+
   # call-seq:
   #   slice(n)  -> jig
   #   slice(name) -> gap
