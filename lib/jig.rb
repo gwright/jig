@@ -188,9 +188,18 @@ class Jig
     gaps.find {|x| x.name == gap_name }
   end
 
+  # call-seq:
+  #   slice(n)  -> jig
+  #   slice(name) -> gap
+  #
+  # Extracts parts of a jig.  If an integer index is provided the
+  # contents preceeding to the nth gap is returned as a jig.
+  # If a non-numeric index is provided, the gap with the matching
+  # name is returned. Returns nil if the numeric index is out of range or the
+  # named gap is not found.
   def slice(index)
     if Integer === index
-      contents[index]
+      Jig[contents[index]]
     else
       has_gap?(index)
     end
