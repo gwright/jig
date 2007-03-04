@@ -29,10 +29,10 @@ class Jig
       declarations = plist && plist.inject([]) { |d, (k,v)| 
         k = k.to_s.tr('_','-')
         case v
-        when String
-         d << "#{k}: #{v}; "
         when Array
-         d << "#{k}: #{v.join(', ')}; "
+          d << "#{k}: #{v.join(', ')}; "
+        else
+          d << "#{k}: #{v}; "
         end
       }
       if plist
@@ -47,31 +47,41 @@ class Jig
     # 
     #   (div > p).to_s     # 'div > p {}'
     def >(other)
-      before(:__s, " > ", other.slice(0)).before(:__p, other.slice(2))
+      before(:__s, " > ", other.selector).before(:__p, other.declarations)
     end
 
     def +(other)
-      before(:__s, " + ", other.slice(0)).before(:__p, other.slice(2))
+      before(:__s, " + ", other.selector).before(:__p, other.declarations)
     end
 
     def *(other)
-      before(:__s, "#", other.slice(0)).before(:__p, other.slice(2))
+      before(:__s, "#", other.selector).before(:__p, other.declarations)
     end
 
     def %(other)
-      before(:__s, ":", other.slice(0)).before(:__p, other.slice(2))
+      before(:__s, ":", other.selector).before(:__p, other.declarations)
     end
 
     def >>(other)
-      before(:__s, " ", other.slice(0)).before(:__p, other.slice(2))
+      before(:__s, " ", other.selector).before(:__p, other.declarations)
     end
 
-    def group(other)
-      before(:__s, ", ", other.slice(0)).before(:__p, other.slice(2))
+    def group(*others)
+      others.inject(self) { |jig, other|
+        jig.before(:__s, ", ", other.selector).before(:__p, other.declarations)
+      }
     end
 
-    def ^(pl)
+    def |(pl)
       plist(pl)
+    end
+
+    def selector
+      self.class.new(slice(0))
+    end
+
+    def declarations
+      self.class.new(slice(2))
     end
 
     def method_missing(sym, plist=nil)
@@ -108,6 +118,7 @@ class Jig
 		Encode = Hash[*%w{& amp " quot > gt < lt}]
 
     def rule(selector="", plist=nil)
+      #base = (@_rule ||= new(:__s, " {\n", :__ps, :__p, "}").freeze)
       base = (@_rule ||= new(:__s, " {", :__ps, :__p, "}").freeze)
       base = base.before(:__s, selector) if selector
       base.plist(plist)

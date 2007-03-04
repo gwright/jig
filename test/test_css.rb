@@ -47,8 +47,8 @@ class Cjig
         @div.plist(:color => 'red').plist(:background => 'olive'),
         'plist twice')
 
-      blue = Cjig.rule('div') ^ {:color => 'blue'}
-      assert_as_string('div {color: blue; }', blue, 'plist merge via ^')
+      blue = Cjig.rule('div') | {:color => 'blue'}
+      assert_as_string('div {color: blue; }', blue, 'plist merge via |')
     end
 
     def test_open?
@@ -105,7 +105,8 @@ class Cjig
     end
 
     def test_selector_list
-      assert_as_string('h1, h2 {}', Cjig.h1 < Cjig.h2, 'selector list')
+      assert_as_string('h1, h2 {}', Cjig.h1.group(Cjig.h2), 'selector list')
+      assert_as_string('h1, h2, h3 {}', Cjig.h1.group(Cjig.h2, Cjig.h3), 'selector list')
     end
 
     def test_units
@@ -124,8 +125,18 @@ class Cjig
       pairs.each { |op, text|
         assert_as_string("div#{text}h1 {color: red; }", div.send(op, h1))
       }
-      assert_as_string("div[onclick] {color: red; }", div['onclick'] ^ {:color => 'red'})
-      assert_as_string("div[onclick] {color: red; }", div['onclick'].^(:color => 'red'))
+      assert_as_string("div[onclick] {color: red; }", div['onclick'] |{:color => 'red'})
+      assert_as_string("div[onclick] {color: red; background: blue; }", div['onclick'].|(:color => 'red')|{:background => 'blue'})
+    end
+
+    def test_selector
+      assert_as_string("div", Cjig.div.selector)
+      assert_as_string("div, h1", Cjig.group(Cjig.div, Cjig.h1).selector)
+    end
+
+    def test_declarations
+      assert_as_string("", Cjig.div.declarations)
+      assert_as_string("color: red; ", (Cjig.div |{'color' => 'red'}).declarations)
     end
 	end
 end
