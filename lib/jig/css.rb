@@ -129,7 +129,7 @@ class Jig
       rule('*', *args)
     end
 
-    def ___
+    def null
       rule
     end
 

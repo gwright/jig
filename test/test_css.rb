@@ -66,7 +66,7 @@ class Cjig
     end
 
     def test_empty_selector
-      assert_as_string(' {}', Cjig.___ , 'empty selector')
+      assert_as_string(' {}', Cjig.null , 'empty selector')
     end
     def test_descendent_selector
       assert_as_string('h1 li {}', Cjig.h1 >> Cjig.li , 'descendent selector')
