@@ -139,10 +139,6 @@ class Jig
       rule('*', *args)
     end
 
-    def null
-      rule
-    end
-
     def group(*selectors)
       selectors.inject {|list, sel| list.group(sel) }
     end

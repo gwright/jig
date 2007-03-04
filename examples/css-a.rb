@@ -1,5 +1,5 @@
 require 'jig'
-Jig.enable :CSS
+CSS = Jig.derive(:CSS)
 
 families = %w{Helvetica Arial sans_serif}
 body_plist = { 
@@ -8,10 +8,10 @@ body_plist = {
   'font-family' => families,
   'color' => '#7F7F7f'
 }
-sheet = Jig.instance_eval {[
+sheet = CSS.instance_eval {[
   body(         body_plist),
-  null*navbar       |{:width => 500.px},
-  null.navitem      |{:color => 'red'},
+  us*'navbar'     |{:width => 500.px},
+  us.navitem      |{:color => 'red'},
   a%hover           |{:text_decoration => 'underline'},
   div*menu          |{:background => 'green'},
   div.foo           |{:background => 'red'},

@@ -15,6 +15,15 @@ module XjigTest
 	end
 end
 
+class TestMeta < Test::Unit::TestCase
+  def test_css
+    css = Jig.derive :CSS
+    assert(css < Jig, 'created subclass')
+    assert(css.included_modules.include?(Jig::CSS), 'included correct modules')
+    assert((class <<css; self; end).included_modules.include?(Jig::CSS::ClassMethods), 'included correct modules')
+  end
+end
+
 
 class Xjig
 	class TestXjig < Test::Unit::TestCase

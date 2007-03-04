@@ -774,6 +774,12 @@ class Jig
         end
       end
     end
+
+    def derive(*features)
+      Class.new(self) {
+        enable(*features)
+      }
+    end
   end
 
   module Base

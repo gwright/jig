@@ -2,9 +2,7 @@
 require 'jig'
 require 'test/unit'
 
-class Cjig < Jig
-  enable :CSS
-end
+CSS = Jig.derive(:CSS)
 
 module Asserts
   def assert_as_string(expected, jig, message='')
@@ -17,26 +15,27 @@ module Asserts
   end
 end
 
-class Cjig
+class CSS
 	class TestCSS < Test::Unit::TestCase
     include Asserts
     def setup
-      @div = Cjig.rule('div')
+      @div = CSS.rule('div')
       @gaps = [:__s, :__ps, :__p]
     end
     def test_empty_rule
-      assert_as_string(' {}', Cjig.rule, 'no selector')
-      assert_equal(@gaps, Cjig.rule.gap_list, 'two gaps with new rule')
+      assert_as_string(' {}', CSS.rule, 'no selector')
+      assert_equal(@gaps, CSS.rule.gap_list, 'two gaps with new rule')
     end
+
 		def test_rule
-      assert_as_string('div {}', Cjig.rule('div'), 'type selector')
-      assert_as_string('div p {}', Cjig.rule('div p'), 'string as selector')
-      assert_equal(@gaps, Cjig.rule('div').gap_list, 'selector and plist gaps available')
+      assert_as_string('div {}', CSS.rule('div'), 'type selector')
+      assert_as_string('div p {}', CSS.rule('div p'), 'string as selector')
+      assert_equal(@gaps, CSS.rule('div').gap_list, 'selector and plist gaps available')
     end
 
     def test_plist
-      assert_as_string('div {color: red; }', Cjig.rule('div', :color => 'red'), 'explicit plist')
-      red = Cjig.rule('div').plist(:color => 'red')
+      assert_as_string('div {color: red; }', CSS.rule('div', :color => 'red'), 'explicit plist')
+      red = CSS.rule('div').plist(:color => 'red')
       assert_as_string('div {color: red; }', red, 'added plist')
       assert_equal(@gaps, red.gap_list, 'plist leaves gaps')
       background, color = 'background: olive; ', 'color: red; '
@@ -47,66 +46,63 @@ class Cjig
         @div.plist(:color => 'red').plist(:background => 'olive'),
         'plist twice')
 
-      blue = Cjig.rule('div') | {:color => 'blue'}
+      blue = CSS.rule('div') | {:color => 'blue'}
       assert_as_string('div {color: blue; }', blue, 'plist merge via |')
     end
 
     def test_open?
-      assert(Cjig.div.open?, 'gaps remain')
-      assert(!Cjig.div.plug_all.open?, 'no gaps')
+      assert(CSS.div.open?, 'gaps remain')
+      assert(!CSS.div.plug_all.open?, 'no gaps')
     end
 
     def test_method_missing
-      assert_as_string('div {}', Cjig.div, 'unknown method generates type selector')
-      assert_equal(@gaps, Cjig.div.gap_list, 'unknown method generates rule jig')
+      assert_as_string('div {}', CSS.div, 'unknown method generates type selector')
+      assert_equal(@gaps, CSS.div.gap_list, 'unknown method generates rule jig')
     end
 
     def test_universal_selector
-      assert_as_string('* {}', Cjig.us, 'universal selector')
+      assert_as_string('* {}', CSS.us, 'universal selector')
     end
 
-    def test_null_selector
-      assert_as_string(' {}', Cjig.null , 'null selector')
-    end
     def test_descendent_combinator
-      assert_as_string('h1 li {}', Cjig.h1 >> Cjig.li , 'descendent combinator')
+      assert_as_string('h1 li {}', CSS.h1 >> CSS.li , 'descendent combinator')
     end
 
     def test_child_combinator
-      assert_as_string('div > h1 {}', Cjig.div > Cjig.h1, 'child combinator')
+      assert_as_string('div > h1 {}', CSS.div > CSS.h1, 'child combinator')
     end
 
     def test_sibling_combinator
-      assert_as_string('div + h1 {}', Cjig.div + Cjig.h1, 'sibling combinator')
+      assert_as_string('div + h1 {}', CSS.div + CSS.h1, 'sibling combinator')
     end
 
     def test_id_selector
-      assert_as_string('div#home {}', Cjig.div * 'home', 'id selector')
+      assert_as_string('div#home {}', CSS.div * 'home', 'id selector')
     end
 
     def test_pseudo_selector
-      assert_as_string('div:home {}', Cjig.div%'home', 'pseudo selector')
+      assert_as_string('div:home {}', CSS.div%'home', 'pseudo selector')
     end
 
     def test_class_selector
-      assert_as_string('h1.urgent {}', Cjig.h1.urgent, 'class selector')
+      assert_as_string('h1.urgent {}', CSS.h1.urgent, 'class selector')
     end
     def test_attribute_selector
-      assert_as_string('h1[class] {}', Cjig.h1['class'], 'attribute selector')
+      assert_as_string('h1[class] {}', CSS.h1['class'], 'attribute selector')
     end
     def test_exact_attribute_selector
-      assert_as_string('h1[class="urgent"] {}', Cjig.h1['class' => "urgent"], 'exact attribute selector')
+      assert_as_string('h1[class="urgent"] {}', CSS.h1['class' => "urgent"], 'exact attribute selector')
     end
     def test_partial_attribute_selector
-      assert_as_string('h1[class~="urgent"] {}', Cjig.h1['class' => /urgent/], 'partial attribute selector')
+      assert_as_string('h1[class~="urgent"] {}', CSS.h1['class' => /urgent/], 'partial attribute selector')
     end
     def test_language_attribute_selector
-      assert_as_string('h1[lang|="lc"] {}', Cjig.h1[:lang => /lc/], 'language attribute selector')
+      assert_as_string('h1[lang|="lc"] {}', CSS.h1[:lang => /lc/], 'language attribute selector')
     end
 
     def test_selector_list
-      assert_as_string('h1, h2 {}', Cjig.h1.group(Cjig.h2), 'selector list')
-      assert_as_string('h1, h2, h3 {}', Cjig.h1.group(Cjig.h2, Cjig.h3), 'selector list')
+      assert_as_string('h1, h2 {}', CSS.h1.group(CSS.h2), 'selector list')
+      assert_as_string('h1, h2, h3 {}', CSS.h1.group(CSS.h2, CSS.h3), 'selector list')
     end
 
     def test_units
@@ -118,8 +114,8 @@ class Cjig
     end
 
     def test_plist_merge
-      div = Cjig.div 
-      h1 = Cjig.h1(:color => 'red')
+      div = CSS.div 
+      h1 = CSS.h1(:color => 'red')
       result = div * h1
       args = [[:>>, ' ', h1], [:>, ' > ', h1], [:+, ' + ', h1]]
       args.each { |op1, text, arg2|
@@ -134,13 +130,13 @@ class Cjig
     end
 
     def test_extract_selector
-      assert_as_string("div", Cjig.div.selector)
-      assert_as_string("div, h1", Cjig.group(Cjig.div, Cjig.h1).selector)
+      assert_as_string("div", CSS.div.selector)
+      assert_as_string("div, h1", CSS.group(CSS.div, CSS.h1).selector)
     end
 
     def test_extract_declarations
-      assert_as_string("", Cjig.div.declarations)
-      assert_as_string("color: red; ", (Cjig.div |{'color' => 'red'}).declarations)
+      assert_as_string("", CSS.div.declarations)
+      assert_as_string("color: red; ", (CSS.div |{'color' => 'red'}).declarations)
     end
 	end
 end
