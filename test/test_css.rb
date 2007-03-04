@@ -141,5 +141,12 @@ class CSS
       assert_as_string("color: red; ", (CSS.div |{'color' => 'red'}).declarations)
     end
 
+    def test_declartion_with_gaps
+      redgap = CSS.div & {'color' => :red }
+      assert(redgap.gap_list.include?(:red))
+      assert_as_string('div {}', redgap , 'gap for property value')
+      assert_as_string('div {color: red; }', redgap.plug(:red, 'red'), 'plug gap')
+    end
+
 	end
 end

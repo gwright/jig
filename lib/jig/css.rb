@@ -26,17 +26,53 @@ class Jig
     end
 
     def to_declarations(hash)
-      hash.inject([]) { |d, (k,v)| 
-        k = k.to_s.tr('_','-')
-        case v
-        when Array
-          d << "#{k}: #{v.join(', ')}; "
+      hash.inject(Jig.null) { |d, (k,v)| 
+        v = case v
+        when Gap
+          v
+        when Symbol
+				  Gap.new(v) { |fill| property_plug(k, fill) }
         else
-          d << "#{k}: #{v}; "
+          property_plug(k, v)
         end
+        d.push(v)
       }
     end
     module_function :to_declarations
+
+		# If value is false, return null string.
+		# Otherwise render name and value as an XML attribute pair:
+		#
+		# If value is not a Jig and is not a Proc, the string is constructed and returned.
+		# A Proc or a Jig, which may indirectly reference a Proc, is handled by constructing
+		# a lambda that responds to _to_s_.  The evaluation of the Proc or Jig is thus delayed
+		# until _to_s_ is called.
+		def property_plug(property, value)
+			return "" unless value
+      property = property.to_s.tr('_','-')
+      future = now = nil
+			if value.respond_to?(:call)
+        future = lambda do
+          if result = value.call
+            property_plug(property, result)
+          else
+            ""
+          end
+        end
+      elsif Jig === value
+        future = lambda { value.to_s }
+      elsif Array === value
+        now = "#{property}: #{value.join(', ')}; "
+      else
+        now = "#{property}: #{value}; "
+      end
+      if future
+			  def future.to_s; call; end
+      end
+			now || future
+		end
+		private :property_plug
+    module_function :property_plug
 
     # Construct a selector with the current selector as the parent
     # and the other selector as the child.
@@ -88,7 +124,8 @@ class Jig
     end
 
     def declarations
-      self.class.new(slice(2))
+      s,e = index(:__ds),index(:__de)
+      self.class.new(slice((s+1)..e))
     end
 
     def method_missing(sym, plist=nil)

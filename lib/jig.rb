@@ -207,6 +207,8 @@ class Jig
   def slice(index)
     if Integer === index
       Jig[contents[index]]
+    elsif Range === index
+      Jig[*contents[index].zip(gaps[(index.begin...index.end)]).flatten]
     else
       has_gap?(index)
     end
