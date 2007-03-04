@@ -65,27 +65,27 @@ class Cjig
       assert_as_string('* {}', Cjig.us, 'universal selector')
     end
 
-    def test_empty_selector
-      assert_as_string(' {}', Cjig.null , 'empty selector')
+    def test_null_selector
+      assert_as_string(' {}', Cjig.null , 'null selector')
     end
-    def test_descendent_selector
-      assert_as_string('h1 li {}', Cjig.h1 >> Cjig.li , 'descendent selector')
-    end
-
-    def test_child_selector
-      assert_as_string('div > h1 {}', Cjig.div > Cjig.h1, 'child selector')
+    def test_descendent_combinator
+      assert_as_string('h1 li {}', Cjig.h1 >> Cjig.li , 'descendent combinator')
     end
 
-    def test_sibling_selector
-      assert_as_string('div + h1 {}', Cjig.div + Cjig.h1, 'sibling selector')
+    def test_child_combinator
+      assert_as_string('div > h1 {}', Cjig.div > Cjig.h1, 'child combinator')
+    end
+
+    def test_sibling_combinator
+      assert_as_string('div + h1 {}', Cjig.div + Cjig.h1, 'sibling combinator')
     end
 
     def test_id_selector
-      assert_as_string('div#home {}', Cjig.div * Cjig.home, 'id selector')
+      assert_as_string('div#home {}', Cjig.div * 'home', 'id selector')
     end
 
     def test_pseudo_selector
-      assert_as_string('div:home {}', Cjig.div % Cjig.home, 'pseudo selector')
+      assert_as_string('div:home {}', Cjig.div%'home', 'pseudo selector')
     end
 
     def test_class_selector
@@ -121,20 +121,24 @@ class Cjig
       div = Cjig.div 
       h1 = Cjig.h1(:color => 'red')
       result = div * h1
-      pairs = [[:>>, ' '], [:>, ' > '], [:+, ' + '], [:*, '#'], [:%, ':']]
-      pairs.each { |op, text|
-        assert_as_string("div#{text}h1 {color: red; }", div.send(op, h1))
+      args = [[:>>, ' ', h1], [:>, ' > ', h1], [:+, ' + ', h1]]
+      args.each { |op1, text, arg2|
+        assert_as_string("div#{text}h1 {color: red; }", div.send(op1, arg2))
+      }
+      args = [[:*, '#', 'header'], [:%, ':', 'first-child']]
+      args.each { |op1, text, arg2|
+        assert_as_string("div#{text}#{arg2} {}", div.send(op1, arg2))
       }
       assert_as_string("div[onclick] {color: red; }", div['onclick'] |{:color => 'red'})
       assert_as_string("div[onclick] {color: red; background: blue; }", div['onclick'].|(:color => 'red')|{:background => 'blue'})
     end
 
-    def test_selector
+    def test_extract_selector
       assert_as_string("div", Cjig.div.selector)
       assert_as_string("div, h1", Cjig.group(Cjig.div, Cjig.h1).selector)
     end
 
-    def test_declarations
+    def test_extract_declarations
       assert_as_string("", Cjig.div.declarations)
       assert_as_string("color: red; ", (Cjig.div |{'color' => 'red'}).declarations)
     end
