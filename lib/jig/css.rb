@@ -25,8 +25,8 @@ class Jig
       Float.send(:include, FloatHelper)
     end
 
-    def plist(plist=nil)
-      declarations = plist && plist.inject([]) { |d, (k,v)| 
+    def to_declarations(hash)
+      hash.inject([]) { |d, (k,v)| 
         k = k.to_s.tr('_','-')
         case v
         when Array
@@ -35,23 +35,19 @@ class Jig
           d << "#{k}: #{v}; "
         end
       }
-      if plist
-        before(:__p, *declarations) 
-      else
-        self
-      end
     end
+    module_function :to_declarations
 
     # Construct a selector with the current selector as the parent
     # and the other selector as the child.
     # 
     #   (div > p).to_s     # 'div > p {}'
     def >(other)
-      before(:__s, " > ", other.selector).before(:__p, other.declarations)
+      before(:__s, " > ", other.selector).before(:__de, other.declarations)
     end
 
     def +(other)
-      before(:__s, " + ", other.selector).before(:__p, other.declarations)
+      before(:__s, " + ", other.selector).before(:__de, other.declarations)
     end
 
     def *(id)
@@ -63,14 +59,17 @@ class Jig
     end
 
     def >>(other)
-      before(:__s, " ", other.selector).before(:__p, other.declarations)
+      before(:__s, " ", other.selector).before(:__de, other.declarations)
     end
 
     def group(other)
+      return self unless other
       sep = selector.null? ? "" : ", "
       case other
+      when Hash
+        before(:__de, to_declarations(other)) 
       when self.class
-        before(:__s, sep, other.selector).before(:__p, other.declarations)
+        before(:__s, sep, other.selector).before(:__de, other.declarations)
       else
         before(:__s, sep, other)
       end
@@ -81,7 +80,7 @@ class Jig
     end
 
     def |(pl)
-      plist(pl)
+      group(pl)
     end
 
     def selector
@@ -93,7 +92,7 @@ class Jig
     end
 
     def method_missing(sym, plist=nil)
-      before(:__s, ".#{sym}").plist(plist)
+      before(:__s, ".#{sym}") & plist
     end
 
     def [](*args)
@@ -126,11 +125,8 @@ class Jig
 		Encode = Hash[*%w{& amp " quot > gt < lt}]
 
     def rule(selector=nil, plist=nil)
-      #base = (@_rule ||= new(:__s, " {\n", :__ps, :__p, "}").freeze)
-      base = (@_rule ||= new(:__s, " {", :__ps, :__p, "}").freeze)
-      #base & selector | plist
-      base = base.before(:__s, selector) if selector
-      base.plist(plist)
+      base = (@_rule ||= new(:__s, " {", :__ds, :__de, "}").freeze)
+      base & selector | plist
     end
 
     # Generate a universal selector rule

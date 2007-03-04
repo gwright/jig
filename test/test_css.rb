@@ -20,7 +20,7 @@ class CSS
     include Asserts
     def setup
       @div = CSS.rule('div')
-      @gaps = [:__s, :__ps, :__p]
+      @gaps = [:__s, :__ds, :__de]
     end
     def test_empty_rule
       assert_as_string(' {}', CSS.rule, 'no selector')
@@ -30,24 +30,24 @@ class CSS
 		def test_rule
       assert_as_string('div {}', CSS.rule('div'), 'type selector')
       assert_as_string('div p {}', CSS.rule('div p'), 'string as selector')
-      assert_equal(@gaps, CSS.rule('div').gap_list, 'selector and plist gaps available')
+      assert_equal(@gaps, CSS.rule('div').gap_list, 'selector and declarations gaps available')
     end
 
-    def test_plist
+    def test_declarations
       assert_as_string('div {color: red; }', CSS.rule('div', :color => 'red'), 'explicit plist')
-      red = CSS.rule('div').plist(:color => 'red')
+      red = CSS.rule('div') & {:color => 'red'}
       assert_as_string('div {color: red; }', red, 'added plist')
       assert_equal(@gaps, red.gap_list, 'plist leaves gaps')
       background, color = 'background: olive; ', 'color: red; '
       assert_as_string(/div \{(#{color}#{background}|#{background}#{color})\}/, 
-        @div.plist(:color => 'red', :background => 'olive'),
-        'added plist')
+        @div & {:color => 'red', :background => 'olive'},
+        'added declarations')
       assert_as_string('div {color: red; background: olive; }', 
-        @div.plist(:color => 'red').plist(:background => 'olive'),
-        'plist twice')
+        @div & {:color => 'red'} & {:background => 'olive'},
+        'two declarations')
 
-      blue = CSS.rule('div') | {:color => 'blue'}
-      assert_as_string('div {color: blue; }', blue, 'plist merge via |')
+      blue = CSS.rule('div') & {:color => 'blue'}
+      assert_as_string('div {color: blue; }', blue, 'declaration list merge via &')
     end
 
     def test_open?
@@ -115,7 +115,7 @@ class CSS
       assert_equal("99.99%", 0.9999.pct)
     end
 
-    def test_plist_merge
+    def test_declarations_merge
       div = CSS.div 
       h1 = CSS.h1(:color => 'red')
       result = div * h1
