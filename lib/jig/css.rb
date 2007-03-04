@@ -54,16 +54,25 @@ class Jig
       before(:__s, " + ", other.selector).before(:__p, other.declarations)
     end
 
-    def *(other)
-      before(:__s, "#", other.selector).before(:__p, other.declarations)
+    def *(id)
+      before(:__s, "#", id.to_s)
     end
 
-    def %(other)
-      before(:__s, ":", other.selector).before(:__p, other.declarations)
+    def %(pseudo)
+      before(:__s, ":", pseudo.to_s)
     end
 
     def >>(other)
       before(:__s, " ", other.selector).before(:__p, other.declarations)
+    end
+
+    def merge(other)
+      case other
+      when self.class
+        before(:__s, ", ", other.selector).before(:__p, other.declarations)
+      else
+        before(:__s, ", ", other)
+      end
     end
 
     def group(*others)
@@ -120,6 +129,7 @@ class Jig
     def rule(selector="", plist=nil)
       #base = (@_rule ||= new(:__s, " {\n", :__ps, :__p, "}").freeze)
       base = (@_rule ||= new(:__s, " {", :__ps, :__p, "}").freeze)
+      #base & selector | plist
       base = base.before(:__s, selector) if selector
       base.plist(plist)
     end
