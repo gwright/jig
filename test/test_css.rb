@@ -24,20 +24,20 @@ class CSS
     end
     def test_empty_rule
       assert_as_string(' {}', CSS.rule, 'no selector')
-      assert_equal(@gaps, CSS.rule.gap_list, 'two gaps with new rule')
+      assert_equal(@gaps, CSS.rule.gaps, 'two gaps with new rule')
     end
 
 		def test_rule
       assert_as_string('div {}', CSS.rule('div'), 'type selector')
       assert_as_string('div p {}', CSS.rule('div p'), 'string as selector')
-      assert_equal(@gaps, CSS.rule('div').gap_list, 'selector and declarations gaps available')
+      assert_equal(@gaps, CSS.rule('div').gaps, 'selector and declarations gaps available')
     end
 
     def test_declarations
       assert_as_string('div {color: red; }', CSS.rule('div', :color => 'red'), 'explicit plist')
       red = CSS.rule('div') & {:color => 'red'}
       assert_as_string('div {color: red; }', red, 'added plist')
-      assert_equal(@gaps, red.gap_list, 'plist leaves gaps')
+      assert_equal(@gaps, red.gaps, 'plist leaves gaps')
       background, color = 'background: olive; ', 'color: red; '
       assert_as_string(/div \{(#{color}#{background}|#{background}#{color})\}/, 
         @div & {:color => 'red', :background => 'olive'},
@@ -57,7 +57,7 @@ class CSS
 
     def test_method_missing
       assert_as_string('div {}', CSS.div, 'unknown method generates type selector')
-      assert_equal(@gaps, CSS.div.gap_list, 'unknown method generates rule jig')
+      assert_equal(@gaps, CSS.div.gaps, 'unknown method generates rule jig')
     end
 
     def test_universal_selector
@@ -143,7 +143,7 @@ class CSS
 
     def test_declartion_with_gaps
       redgap = CSS.div & {'color' => :red }
-      assert(redgap.gap_list.include?(:red))
+      assert(redgap.gaps.include?(:red))
       assert_as_string('div {}', redgap , 'gap for property value')
       assert_as_string('div {color: red; }', redgap.plug(:red, 'red'), 'plug gap')
     end

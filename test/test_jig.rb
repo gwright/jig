@@ -163,7 +163,7 @@ class Xjig
 		end
 
 		def test_array
-			assert_equal([], (Xjig.new << []).gap_list)
+			assert_equal([], (Xjig.new << []).gaps)
 			assert_equal(%Q{}, (Xjig.new << []).to_s)
 			assert_equal(%Q{ab}, (Xjig.new << ["a", "b"]).to_s)
 			assert_equal(%Q{ab}, (Xjig.new << [["a", "b"]]).to_s)
@@ -308,8 +308,8 @@ class Xjig
 			assert_similar(Xjig.new, Xjig.null,   'blank construction similar to BLANK' )
 			#assert_not_equal(Xjig.new, Xjig.new)
 
-			assert_equal(0, Xjig.null.gap_count,	'blank construction has no gaps')
-			assert_equal(1, Xjig.new.gap_count,		'empty construction has a gap')
+			assert_equal(0, Xjig.null.gaps.size,	'blank construction has no gaps')
+			assert_equal(1, Xjig.new.gaps.size,		'empty construction has a gap')
 			assert_equal("", Xjig.null.to_s,			'blank shows as empty string')
 			assert_equal("", Xjig.new.to_s,				'empty shows as empty string')
 

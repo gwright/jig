@@ -134,8 +134,8 @@ class Jig
 
   attr_accessor  :contents    # the sequence of objects
   protected      :contents=
-  attr_accessor  :gaps        # the unfilled gaps
-  protected      :gaps=
+  attr_accessor  :rawgaps        # the unfilled gaps
+  protected      :rawgaps=
   attr_accessor  :extra       # extra state information, used by extensions
   protected      :extra
 
@@ -154,7 +154,7 @@ class Jig
   # Gaps with associated filters are shown with trailing braces: :gap{}.
   #   Jig.new.inspect         # #<Jig: [:___]>
   def inspect
-    info = gaps.map {|g| g.identity? && g.name || "#{g.name}{}" }
+    info = rawgaps.map {|g| g.identity? && g.name || "#{g.name}{}" }
     "#<Jig: #{contents.zip(info).flatten[0..-2].inspect}>"
   end
 
@@ -163,7 +163,7 @@ class Jig
   #   Jig.new('a').full?       # true
   #   Jig.new.plug('a').full?  # true
   def closed?
-    gaps.empty?
+    rawgaps.empty?
   end
 
   # Returns _true_ if the jig has any remaining gaps to be filled.
@@ -182,31 +182,21 @@ class Jig
     closed? && to_s.empty?
   end
 
-  # Returns the number of remaining gaps in the jig.
-  def gap_count
-    gaps.size
-  end
-
-  # Returns a set containing the names of all the remaining gaps.
-  def gap_set
-    gaps.inject(Set.new) { |s, gitem| s << gitem.name}
-  end
-
   # Returns an array containing the names, in order, of the gaps.
   # A name may occur more than once in the list.
-  def gap_list
-    gaps.collect { |g| g.name }
+  def gaps
+    rawgaps.collect { |g| g.name }
   end
 
   # Returns _true_ if the named gap appears in the jig.
   def has_gap?(gap_name)
-    gaps.find {|x| x.name == gap_name }
+    rawgaps.find {|x| x.name == gap_name }
   end
 
   # Returns the position of the named gap or nil if the gap
   # is not found.
   def index(name)
-    gaps.each_with_index {|g,i| return i if g.name == name }
+    rawgaps.each_with_index {|g,i| return i if g.name == name }
     nil
   end
 
@@ -223,7 +213,7 @@ class Jig
     if Integer === index
       Jig[contents[index]]
     elsif Range === index
-      Jig[*contents[index].zip(gaps[(index.begin...index.end)]).flatten]
+      Jig[*contents[index].zip(rawgaps[(index.begin...index.end)]).flatten]
     else
       has_gap?(index)
     end
@@ -272,10 +262,10 @@ class Jig
   # If no arguments are given and no block is given, the jig is constructed
   # with a single default gap named :___ (also known as Jig::INNER).
   #   one_gap = Jig.new
-  #   p one_gap.gap_list   # [:___]
+  #   p one_gap.gaps   # [:___]
   def initialize(*items, &block)
     @contents = [[]]
-    @gaps = []
+    @rawgaps = []
     @extra = {}
     if items.empty? && !block
       push_gap(INNER_GAP)
@@ -291,7 +281,7 @@ class Jig
   def freeze
     super
     @contents.freeze
-    @gaps.freeze
+    @rawgaps.freeze
     @extra.freeze
     self
   end
@@ -307,7 +297,7 @@ class Jig
   #   a.plug(:alpha, 1).to_s == b.plug(:beta, 1).to_s    # true
   #
   def ==(other)
-    (gaps == other.gaps) && (contents.flatten == other.contents.flatten)
+    (rawgaps == other.rawgaps) && (contents.flatten == other.contents.flatten)
   end
 
   # Returns true if the string representation of the jig equals 
@@ -334,7 +324,7 @@ class Jig
   def dup
     other = super
     other.contents = @contents.dup
-    other.gaps = @gaps.dup
+    other.rawgaps = @rawgaps.dup
     other.extra = @extra.dup
     other
   end
@@ -460,7 +450,7 @@ class Jig
   end
 
   def multn(items)
-    (0...[gaps.size,items.size].min).inject(self) { |j,i|
+    (0...[rawgaps.size,items.size].min).inject(self) { |j,i|
       j.plugn 0, items[i]
     }
   end
@@ -552,7 +542,7 @@ class Jig
     else
       items.unshift first
     end
-    items.push(gaps.find {|x| x.name == gap})
+    items.push(rawgaps.find {|x| x.name == gap})
     plug(gap, *items)
   end
 
@@ -577,7 +567,7 @@ class Jig
   # the number of pairs.
   def fill!(pairs)
     return plug!(pairs) unless pairs.respond_to? :has_key?
-    gap_set.inject(self) {|jig,gap|
+    gaps.uniq.inject(self) {|jig,gap|
       jig.plug!(gap, pairs[gap]) if pairs.has_key?(gap)
       jig
     }
@@ -595,7 +585,7 @@ class Jig
   # Fill all remaining gaps with plugs from pairs. It is assumed that pairs
   # will always return a value for any key, perhaps nil.
   def plug_all!(pairs={})
-    gap_set.inject(self) {|jig,gap| jig.plug!(gap, pairs[gap]) }
+    gaps.uniq.inject(self) {|jig,gap| jig.plug!(gap, pairs[gap]) }
   end
 
   alias close :plug_all!
@@ -627,9 +617,9 @@ class Jig
   #
   # The following relation always holds:  gaps.size + 1 == contents.size
   def _plug!(gname, *items)
-    self.gaps = gaps.inject([]) do |list, gap|
+    self.rawgaps = rawgaps.inject([]) do |list, gap|
       insert = lambda {|match, fill|
-          case fill.gaps.size
+          case fill.rawgaps.size
           when 0
             contents[match,2] = [[contents[match], fill.contents.first, contents[match+1]]]
           when 1
@@ -637,7 +627,7 @@ class Jig
           else
             contents[match,2] = [[contents[match], fill.contents.first ], fill.contents[1..-2], [fill.contents.last, contents[match+1]]]
           end
-          list.push(*fill.gaps)
+          list.push(*fill.rawgaps)
       }
       next list << gap unless gap.name == gname
       match = list.size
@@ -661,10 +651,10 @@ class Jig
   end
 
   def _plugn!(index, *items)
-    fill = gaps.fetch(index).fill(*items)
+    fill = rawgaps.fetch(index).fill(*items)
     fill = fill.to_jig if fill.respond_to? :to_jig
     if Jig === fill
-      case fill.gaps.size
+      case fill.rawgaps.size
       when 0
         contents[index,2] = [[contents[index], fill.contents.first, contents[index+1]]]
       when 1
@@ -672,7 +662,7 @@ class Jig
       else
         contents[index,2] = [[contents[index], fill.contents.first ], fill.contents[1..-2], [fill.contents.last, contents[index+1]]]
       end
-      gaps[index,1] = fill.gaps
+      gaps[index,1] = fill.rawgaps
     elsif Symbol === fill
       gaps[index, 1] = Gap.new(fill)
     elsif Gap === fill
@@ -685,14 +675,14 @@ class Jig
   end
 
   def push_gap(gitem)
-    @gaps << gitem
+    @rawgaps << gitem
     @contents << []
     self
   end
 
   def push_jig(other)
     self.contents = contents[0..-2] + [contents[-1] + other.contents[0]] + other.contents[1..-1]
-    gaps.concat other.gaps
+    rawgaps.concat other.rawgaps
     self
   end
   protected :push_jig
