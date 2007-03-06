@@ -139,6 +139,17 @@ class Jig
   attr_accessor  :extra       # extra state information, used by extensions
   protected      :extra
 
+  class <<self
+    alias [] :new
+
+    # Construct a null jig.  An null jig has no contents and no gaps and
+    # is often useful as a starting point for construction of more complex jigs.
+    # It can be considered analogous to an empty array or a null string.
+    def null
+      new(nil)
+    end
+  end
+
   # A jig is rendered as an array of objects with gaps represented by symbols.
   # Gaps with associated filters are shown with trailing braces: :gap{}.
   #   Jig.new.inspect         # #<Jig: [:___]>
@@ -155,6 +166,10 @@ class Jig
     gaps.empty?
   end
 
+  # Returns _true_ if the jig has any remaining gaps to be filled.
+  #   Jig.new.full?            # true
+  #   Jig.new('a').full?       # false
+  #   Jig.new.plug('a').full?  # false
   def open?
     !closed?
   end
@@ -240,18 +255,6 @@ class Jig
     end
   end
 
-  class <<self
-    alias [] :new
-
-    # Construct a null jig.  An null jig has no contents and no gaps and
-    # is often useful as a starting point for construction of more complex jigs.
-    # It can be considered analogous to an empty array or a null string.
-    def null
-      new(nil)
-    end
-  end
-
-
   # Construct a jig from the list of _items_.  Symbols in the list are
   # replaced with a gap named by the symbol.
   #
@@ -262,13 +265,14 @@ class Jig
   # a jig are not evaluated until the jig is converted to a string by Jig#to_s.
   #   i = 0
   #   j = Jig.new("i = ") { i }
+  #   puts j     # i = 0
   #   i = 1
   #   puts j     # i = 1
   # 
   # If no arguments are given and no block is given, the jig is constructed
-  # with a single default gap named :___ (also known as Jig::GAP).
+  # with a single default gap named :___ (also known as Jig::INNER).
   #   one_gap = Jig.new
-  #   p one_gap.gap_list   -> [:___]
+  #   p one_gap.gap_list   # [:___]
   def initialize(*items, &block)
     @contents = [[]]
     @gaps = []
@@ -317,7 +321,6 @@ class Jig
     self
   end
 
-
   # Create a new jig formed by inserting a copy of the current jig between each
   # element of the array.  The elements of the array are treated like plug arguments.
   # Example : (Jig.new('X') | [1,2,3]).to_s   # =>  "1X2X3"
@@ -325,7 +328,6 @@ class Jig
   def wedge(array)
     Jig[array.zip((1..(array.size - 1)).to_a.map { self.dup })]
   end
-
 
   # A duplicate jig is returned.  This is a shallow copy, the 
   # contents of the jig are not duplicated.
@@ -471,10 +473,10 @@ class Jig
   #   plug                      -> a_jig
   #
   # Duplicates the current jig,  plugs one or more named gaps, and
-  # returns the result. If the named plug is not defined, the
-  # duplicate jig is returned as is.
+  # returns the result. Plug silently ignores attempts to fill
+  # undefined gaps.
   #
-  # If called with a symbol, the
+  # If called with a signle symbol argument, the
   # default gap is plugged with a simple gap (symbol).
   #
   # If called with a symbol and one or more items, the
@@ -482,29 +484,29 @@ class Jig
   #
   # If called with a hash, the keys are used as gap names and
   # the values are used to plug the respective gaps.  The gaps
-  # are effectively plugged in parallel to avoid any problems
-  # with the plugs of one gap being considered while plugging
-  # subsequent gaps.
+  # are effectively plugged in parallel to avoid any ambiguity
+  # when gaps are plugged with jigs that themselves contain
+  # additional gaps.
   #
   # If called with a list of one or more items the default gap is
   # plugged with the list of items.
   #
-  # If called with no arguments, the default gap is plugged
-  # with nil.
+  # If called with no arguments, the default gap is closed by
+  # plugging it with with nil.
   #
   #   b = Jig::Gap.new :beta
-  #   j = Jig.new          # Jig[:___]
-  #   jg = Jig[:gamma, :epsilon]     # Jig[:gamma, :epsion]
+  #   j = Jig.new                 # Jig[:___]
+  #   jg = Jig[:gamma, :epsilon]  # Jig[:gamma, :epsion]
   #
-  #   j.plug :alpha            # Jig[:alpha]
-  #   j.plug b                 # Jig[:beta]
-  #   j.plug 1                 # Jig[1]
-  #   j.plug :alpha, 'a'       # Jig[:___]
-  #   jg.plug :gamma, 'a', 'b' # Jig['a', 'b', :epsilon]
+  #   j.plug :alpha               # Jig[:alpha]
+  #   j.plug b                    # Jig[:beta]
+  #   j.plug 1                    # Jig[1]
+  #   j.plug :alpha, 'a'          # Jig[:___]
+  #   jg.plug :gamma, 'a', 'b'    # Jig['a', 'b', :epsilon]
   #   jg.plug :gamma => 'a', 
-  #           :epsilon => 'e'  # Jig['a', 'e']
-  #   j.plug 1,2,3             # Jig[1,2,3]
-  #   j.plug                   # Jig[nil]
+  #           :epsilon => 'e'     # Jig['a', 'e']
+  #   j.plug 1,2,3                # Jig[1,2,3]
+  #   j.plug                      # Jig[nil]
   def plug(*args, &block)
     dup.plug!(*args, &block)
   end
@@ -515,22 +517,26 @@ class Jig
   #   plugn(hash)          -> a_jig
   #   plugn(*items)        -> a_jig
   #
-  # Similar to #plug but gaps are identified by position, not by name.
+  # Similar to #plug but gaps are identified by numerical index, not by name.
   #
-  # When called with an array, array[n] is used to plug the corresponding
-  # gap.
+  # When called with an array, the nth item of the array is use to plug the
+  # nth gap.
   #
   # When called with a hash, the hash keys are used as indexes into the
   # gap list.
   #
   # When called with no explicit index or implicit index list (array or
-  # hash), the first gap is plugged (index = 0).
+  # hash), the first gap (index = 0) is plugged with the items.
+  #
+  #   list = Jig["1) \n", :item, "2) \n", :item, "3) \n'", :item]
+  #   result = list.plugn(:item, 'first', 'second', 'third')
+  #   puts result           #   "1) first\n2) second\n3) third\n"
   def plugn(*args, &block)
     dup.plugn!(*args, &block)
   end
 
-  alias merge :plug
-  alias merge! :plug!
+  #alias merge  :plug
+  #alias merge! :plug!
 
   # Returns a new jig constructed by inserting the item *before* the specified gap.
   # The gap itself remains in the new jig.
