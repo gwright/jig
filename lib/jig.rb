@@ -619,20 +619,26 @@ class Jig
   def _plug!(gname, *items)
     self.rawgaps = rawgaps.inject([]) do |list, gap|
       insert = lambda {|match, fill|
+        #warn "fill contents is: #{fill.contents.inspect}"
           case fill.rawgaps.size
           when 0
             contents[match,2] = [[contents[match], fill.contents.first, contents[match+1]]]
           when 1
             contents[match,2] = [[contents[match], fill.contents.first ], [fill.contents.last, contents[match+1]]]
+          when 2
+            contents[match,2] = [[contents[match], fill.contents.first ],fill.contents[1], [fill.contents.last, contents[match+1]]]
           else
-            contents[match,2] = [[contents[match], fill.contents.first ], fill.contents[1..-2], [fill.contents.last, contents[match+1]]]
+            contents[match,2] = [[contents[match], fill.contents.first ]].concat(fill.contents[1..-2]).push([fill.contents.last, contents[match+1]])
           end
-          list.push(*fill.rawgaps)
+          list.concat(fill.rawgaps)
       }
       next list << gap unless gap.name == gname
       match = list.size
-      fill = gap.fill(*items)
-      fill = fill.to_jig if fill.respond_to? :to_jig
+      fill = *gap.fill(*items)
+      #warn "match is #{match}"
+      #warn "list is #{list.inspect}"
+      #warn "contents is: #{contents.inspect}"
+      #warn "fill is: #{fill.inspect}"
       case fill
       when Jig
         insert[match,fill]
@@ -640,12 +646,22 @@ class Jig
         list.push Gap.new(fill)
       when Gap
         list.push fill
-      when Array
-        insert[match, Jig[nil, *fill]]
       else
-        contents[match, 2] = [contents[match,2].insert(1, fill)]
-        list
+        if fill.respond_to?(:to_jig)
+          insert[match, fill.to_jig]
+        elsif fill.respond_to?(:fetch)
+          insert[match, Jig[*fill]]
+        elsif fill.respond_to?(:call)
+          insert[match, Jig[*fill]]
+        else
+          #warn 'simple fill'
+          contents[match,2] = [[contents[match],fill,contents[match+1]]]
+          list
+        end
       end
+      #warn "after list is #{list.inspect}"
+      #warn "after contents is: #{contents.inspect}"
+      list
     end
     self
   end
