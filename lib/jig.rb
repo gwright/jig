@@ -414,28 +414,22 @@ class Jig
   #   plug!(symbol, item, *more) -> a_jig
   #   plug!(hash)                -> a_jig
   #   plug!(item, *more)         -> a_jig
+  #   plug! { |gap| ... }        -> a_jig
   #   plug!                      -> a_jig
   #
   # Plugs one or more named gaps (see #plug) and returns self.  The current jig is
   # modified.  To construct a new jig use #plug instead.
   # If the named plug is not defined, the jig is not changed.
-  def plug!(first=nil, *more, &block)
-    gap = :___
+  def plug!(*args, &block)
     return fill!(&block) if block
-    case first
-    when Symbol 
-      if more.empty?
-        more.unshift first
-      else
-        gap = first
-      end
-    when Hash 
-      return fill!(first)
+    first = args.first
+    return fill!(first) if first.respond_to?(:has_key?)
+
+    if Symbol === first
+      return fill!(first => (x = *args[1..-1]))
     else
-      more.unshift first
+      return fill!(:___ => (x = *args))
     end
-    return self unless has_gap?(gap)
-    _plug!(gap, *more)
   end
   alias []= :plug!
 
@@ -603,58 +597,7 @@ class Jig
   # sequence:   c1  g1  c2  g2  c3  g3 c4
   #
   # The following relation always holds:  gaps.size + 1 == contents.size
-  def _plug!(gname, first=nil, *more)
-    return fill!(gname => first) if more.empty?
-    return fill!(gname => [first, *more])
-    self.rawgaps = rawgaps.inject([]) do |list, gap|
-      insert = lambda {|match, fill|
-        #warn "fill contents is: #{fill.contents.inspect}"
-          case fill.rawgaps.size
-          when 0
-            contents[match,2] = [[contents[match], fill.contents.first, contents[match+1]]]
-          when 1
-            contents[match,2] = [[contents[match], fill.contents.first ], [fill.contents.last, contents[match+1]]]
-          when 2
-            contents[match,2] = [[contents[match], fill.contents.first ],fill.contents[1], [fill.contents.last, contents[match+1]]]
-          else
-            contents[match,2] = [[contents[match], fill.contents.first ]].concat(fill.contents[1..-2]).push([fill.contents.last, contents[match+1]])
-          end
-          list.concat(fill.rawgaps)
-      }
-      next list << gap unless gap.name == gname
-      match = list.size
-      fill = *gap.fill(*items)
-      #warn "match is #{match}"
-      #warn "list is #{list.inspect}"
-      #warn "contents is: #{contents.inspect}"
-      #warn "fill is: #{fill.inspect}"
-      case fill
-      when Jig
-        insert[match,fill]
-      when Symbol
-        list.push Gap.new(fill)
-      when Gap
-        list.push fill
-      else
-        if fill.respond_to?(:to_jig)
-          insert[match, fill.to_jig]
-        elsif fill.respond_to?(:fetch)
-          insert[match, Jig[*fill]]
-        elsif fill.respond_to?(:call)
-          insert[match, Jig[*fill]]
-        else
-          #warn 'simple fill'
-          contents[match,2] = [[contents[match],fill,contents[match+1]]]
-          list
-        end
-      end
-      #warn "after list is #{list.inspect}"
-      #warn "after contents is: #{contents.inspect}"
-      list
-    end
-    self
-  end
-
+  # 
   # Mutate the existing jig by filling all remaining gaps.  The gap name
   # is looked up via _pairs[name]_ and the result is used to plug the gap.
   # If there is no match in _pairs_ for a gap, it remains unplugged.
