@@ -67,13 +67,13 @@ class Jig
     def _element(tag)
       whitespace = Newlines.include?(tag.to_sym) && "\n" || ""
       Element_Cache[tag] ||= begin
-        new("<#{tag}".freeze, ATTRS_GAP, ">#{whitespace}".freeze, INNER, "</#{tag}>\n".freeze).freeze
+        new("<#{tag}".freeze, ATTRS_GAP, ">#{whitespace}".freeze, GAP, "</#{tag}>\n".freeze).freeze
       end
     end
 
     def _anonymous(tag)
       whitespace = Newlines.include?(tag.to_sym) && "\n" || ""
-      new("<", tag.to_sym, ATTRS_GAP, ">#{whitespace}", INNER, "</", tag.to_sym, ">\n")
+      new("<", tag.to_sym, ATTRS_GAP, ">#{whitespace}", GAP, "</", tag.to_sym, ">\n")
     end
 
     Empty_Element_Cache = {}
@@ -113,24 +113,26 @@ class Jig
 		def anonymous(tag='div', *args)
       attrs = args.last.respond_to?(:fetch) && args.pop || nil
       args.push(lambda{|*x| yield(*x) }) if block_given?
-      args.push INNER if args.empty?
-      _anonymous(tag).plug(ATTRS => attrs, INNER => args)
+      args.push GAP if args.empty?
+      _anonymous(tag).plug(ATTRS => attrs, GAP => args)
     end
 
 		# Construct a jig for an HTML element with _tag_ as the tag.
 		def element(tag='div', *args)
       attrs = args.last.respond_to?(:fetch) && args.pop || nil
       args.push(lambda{|*x| yield(*x) }) if block_given?
-      args.push INNER if args.empty?
-      _element(tag).plug(ATTRS => attrs, INNER => args)
+      args.push GAP if args.empty?
+      #warn "args is: #{args.inspect}"
+      #warn "attsr is: #{attrs.inspect}"
+      _element(tag).plug(ATTRS => attrs, GAP => args)
     end
 
 		# Construct a jig for an empty HTML element with _tag_ as the tag.
 		def element!(tag, *args)
       attrs = args.last.respond_to?(:fetch) && args.pop || nil
       args.push(lambda{|*x| yield(*x) }) if block_given?
-      args.push INNER if args.empty?
-      _element!(tag).plug(ATTRS => attrs, INNER => args)
+      args.push GAP if args.empty?
+      _element!(tag).plug(ATTRS => attrs, GAP => args)
 		end
 
     def xml(*args)
@@ -143,21 +145,21 @@ class Jig
     Cache = {}
     def cdata(*args)
       args.push(lambda{|*x| yield(*x) }) if block_given?
-      args.push INNER if args.empty?
-      jig = (Cache[:cdata] ||= new("<![CDATA[\n".freeze, INNER, " ]]>\n".freeze).freeze)
+      args.push GAP if args.empty?
+      jig = (Cache[:cdata] ||= new("<![CDATA[\n".freeze, GAP, " ]]>\n".freeze).freeze)
       jig.plug(*args)
     end
 
     def comment(*args)
       args.push(lambda{|*x| yield(*x) }) if block_given?
-      args.push INNER if args.empty?
-      jig = (Cache[:comment] ||= new("<!-- ".freeze, INNER, " -->\n".freeze).freeze)
+      args.push GAP if args.empty?
+      jig = (Cache[:comment] ||= new("<!-- ".freeze, GAP, " -->\n".freeze).freeze)
       jig.plug(*args)
     end
 
     def comments(*args)
       args.push(lambda{|*x| yield(*x) }) if block_given?
-      args.push INNER if args.empty?
+      args.push GAP if args.empty?
       args.push "\n"
       comment("\n", *args)
     end

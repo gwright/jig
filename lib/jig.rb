@@ -96,14 +96,14 @@ class Jig
   # The default filter simply returns the same list of items.
   class Gap
     ATTRS = :__a
-    INNER = :___
+    GAP = :___
     Identity = lambda { |*filling| return *filling }
     attr :name    # the name associated with the gap
     attr :filter  # the lambda associated with the gap
 
     # Construct a new gap with the specified name.  A block, if given, becomes
     # the filter for replacement items.
-    def initialize(name=INNER, &filter)
+    def initialize(name=GAP, &filter)
       @name = name.to_sym
       @filter = filter && lambda(&filter) || Identity
     end
@@ -129,8 +129,8 @@ class Jig
     end
   end
 
-  INNER_GAP = Gap.new
-  INNER = INNER_GAP.name
+  DEFAULT_GAP = Gap.new
+  GAP = DEFAULT_GAP.name
 
   attr_accessor  :contents    # the sequence of objects
   protected      :contents=
@@ -260,7 +260,7 @@ class Jig
   #   puts j     # i = 1
   # 
   # If no arguments are given and no block is given, the jig is constructed
-  # with a single default gap named :___ (also known as Jig::INNER).
+  # with a single default gap named :___ (also known as Jig::GAP).
   #   one_gap = Jig.new
   #   p one_gap.gaps   # [:___]
   def initialize(*items, &block)
@@ -268,7 +268,7 @@ class Jig
     @rawgaps = []
     @extra = {}
     if items.empty? && !block
-      push_gap(INNER_GAP)
+      push_gap(DEFAULT_GAP)
     else
       push(*items)
       push(block) if block
@@ -428,7 +428,7 @@ class Jig
     if Symbol === first
       return fill!(first => (x = *args[1..-1]))
     else
-      return fill!(:___ => (x = *args))
+      return fill!(GAP => (x = *args))
     end
   end
   alias []= :plug!
@@ -527,7 +527,7 @@ class Jig
   # Returns a new jig constructed by inserting the item *before* the specified gap.
   # The gap itself remains in the new jig.
   def before(first, *items)
-    gap = :___
+    gap = GAP
     case first
     when Symbol
       if !items.empty?
@@ -545,7 +545,7 @@ class Jig
   # A new jig is constructed by inserting the item *after* the specified gap.
   # The gap itself remains in the new jig.
   def after(gap, item=nil)
-    gap,item = :___, gap unless item
+    gap,item = GAP, gap unless item
     plug(gap, Jig.new(gap, item))
   end
 
@@ -729,7 +729,7 @@ class Jig
               raise ArgumentError, "invalid gap found: #{raw.rest[0..10]}.."
             end
             if raw[1].empty?
-              items << :___
+              items << GAP
             else
               items << raw[2].to_sym
             end
