@@ -2,7 +2,9 @@ History.txt
 Manifest.txt
 README.txt
 Rakefile
-bin/jig
 lib/jig.rb
 lib/jig/xml.rb
+lib/jig/xhtml.rb
+lib/jig/css.rb
 test/test_jig.rb
+test/test_css.rb
