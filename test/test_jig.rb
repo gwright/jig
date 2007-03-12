@@ -28,7 +28,7 @@ class Xjig
 		include XjigTest
 		def test_creation
 			# empty jigs and gaps
-			assert_instance_of(Symbol, Jig::INNER)
+			assert_instance_of(Symbol, Jig::GAP)
 			assert_instance_of(Xjig, Xjig.new)
 			assert(!Xjig.new.closed?)
 			assert((Xjig.new << 'full').closed?)
@@ -36,11 +36,11 @@ class Xjig
 			# rendering of empty jigs and gaps
 			assert_equal("", Xjig.new.to_s)
 			assert_equal("", Xjig.new(:__gap).to_s)
-			assert_equal("", Xjig.new(Jig::INNER).to_s)
+			assert_equal("", Xjig.new(Jig::GAP).to_s)
 
 			# testing ==
-			assert_equal(Xjig.new(Jig::INNER).to_s, Xjig.new(Jig::INNER).to_s, 'equality via string conversion')
-			assert_equal(Xjig.new(Jig::INNER), Xjig.new(Jig::INNER), 'equality via Xjig#==')
+			assert_equal(Xjig.new(Jig::GAP).to_s, Xjig.new(Jig::GAP).to_s, 'equality via string conversion')
+			assert_equal(Xjig.new(Jig::GAP), Xjig.new(Jig::GAP), 'equality via Xjig#==')
 
 			# strings, no gaps
 			assert_kind_of(Xjig, Xjig.new("a", "c"))
@@ -48,14 +48,14 @@ class Xjig
 
 			# gaps surrounding string
 			assert_equal("string", Xjig.new("string").to_s)
-			assert_equal("string", Xjig.new("string", Jig::INNER).to_s)
-			assert_equal("string", Xjig.new(Jig::INNER, "string").to_s)
-			assert_equal("string", Xjig.new(Jig::INNER, "string", Jig::INNER).to_s)
+			assert_equal("string", Xjig.new("string", Jig::GAP).to_s)
+			assert_equal("string", Xjig.new(Jig::GAP, "string").to_s)
+			assert_equal("string", Xjig.new(Jig::GAP, "string", Jig::GAP).to_s)
 
 			# strings surrounding gaps
-			assert_kind_of(Xjig, Xjig.new("a", Jig::INNER, "c"))
-			assert_kind_of(String, Xjig.new("a", Jig::INNER, "c").to_s)
-			assert_equal("ac", Xjig.new("a", Jig::INNER, "c").to_s)
+			assert_kind_of(Xjig, Xjig.new("a", Jig::GAP, "c"))
+			assert_kind_of(String, Xjig.new("a", Jig::GAP, "c").to_s)
+			assert_equal("ac", Xjig.new("a", Jig::GAP, "c").to_s)
 
 			# gap invariance
 			assert_similar(Xjig.new(:alpha, "a", :beta), Xjig.new(:beta, "a", :alpha), "gap name invariance")
@@ -90,8 +90,8 @@ class Xjig
 			# Hash checks
 			assert_equal(%Q{ a="b"}, Xjig.new('a' => 'b').to_s, 'create from Hash')
 			assert_equal(%Q{ a="b" c="d"}, Xjig.new('a' => 'b', 'c' => 'd').to_s, 'create from Hash, 2 items')
-			assert_equal(%Q{ a="b"}, Xjig.new(Jig::INNER, 'a' => 'b').to_s, 'hash and gap')
-			assert_equal("", Xjig.new('a' => Jig::INNER).to_s, 'attribute suppression')
+			assert_equal(%Q{ a="b"}, Xjig.new(Jig::GAP, 'a' => 'b').to_s, 'hash and gap')
+			assert_equal("", Xjig.new('a' => Jig::GAP).to_s, 'attribute suppression')
 
 			assert_nothing_raised(ArgumentError, 'hash OK with #new') { Xjig.new(:div, "first", {'a' => 'b'}, "third") }
 			assert_equal(%Q{first a="b"third}, Xjig.new(:div, "first", {'a' => 'b'}, "third").to_s)
@@ -113,17 +113,17 @@ class Xjig
 		def test_plugging
 			# plugging gaps
 			assert_equal("ac", Xjig.new("a", "c").plug("b").to_s)
-			assert_kind_of(Xjig, Xjig.new("a", Jig::INNER, "c").plug("b"))
-			assert_kind_of(String, Xjig.new("a", Jig::INNER, "c").plug("b").to_s)
-			assert_equal("abc", Xjig.new("a", Jig::INNER, "c").plug("b").to_s)
-			assert_equal("XaX", Xjig.new(Jig::INNER, "a", Jig::INNER).plug("X").to_s)
+			assert_kind_of(Xjig, Xjig.new("a", Jig::GAP, "c").plug("b"))
+			assert_kind_of(String, Xjig.new("a", Jig::GAP, "c").plug("b").to_s)
+			assert_equal("abc", Xjig.new("a", Jig::GAP, "c").plug("b").to_s)
+			assert_equal("XaX", Xjig.new(Jig::GAP, "a", Jig::GAP).plug("X").to_s)
 
 			# using << instead of #plug
 			assert_equal("ac", (Xjig.new("a", "c") << ("b")).to_s)
-			assert_kind_of(Xjig, Xjig.new("a", Jig::INNER, "c") << ("b"))
-			assert_kind_of(String, (Xjig.new("a", Jig::INNER, "c")<<("b")).to_s)
-			assert_equal("abc", (Xjig.new("a", Jig::INNER, "c")<<("b")).to_s)
-			assert_equal("XaX", (Xjig.new(Jig::INNER, "a", Jig::INNER)<<("X")).to_s)
+			assert_kind_of(Xjig, Xjig.new("a", Jig::GAP, "c") << ("b"))
+			assert_kind_of(String, (Xjig.new("a", Jig::GAP, "c")<<("b")).to_s)
+			assert_equal("abc", (Xjig.new("a", Jig::GAP, "c")<<("b")).to_s)
+			assert_equal("XaX", (Xjig.new(Jig::GAP, "a", Jig::GAP)<<("X")).to_s)
 
 			# named gaps
 			assert_equal(Xjig.new(:alpha).to_s, Xjig.new(:beta).to_s)
@@ -135,16 +135,16 @@ class Xjig
 			assert_equal("a", (Xjig.new("a", :alpha, :beta) << [:beta, "c"]).to_s)
 			assert_similar(@a1c, (Xjig.new("a", :alpha, :beta) << [:beta, "c"] << {:beta, "c"} ))
 			assert_equal("abc", (Xjig.new("a", :alpha, :beta) << [:beta, "c"] << {:beta, "c"}  << {:alpha, "b"} ).to_s)
-			assert_equal("a", (Xjig.new("a", :alpha, :beta) << { Jig::INNER, "c"}).to_s)
+			assert_equal("a", (Xjig.new("a", :alpha, :beta) << { Jig::GAP, "c"}).to_s)
 
 			# plugging hashs
 			assert_equal(%Q{ a="b"}, Xjig.new('a' => :alpha).plug(:alpha, "b").to_s, 'plugging an attribute')
 			assert_equal(%Q{ a="b"}, Xjig.new('a' => :alpha).plug(:alpha, lambda { "b" }).to_s, 'plugging an attribute with a proc')
 			assert_equal(%Q{}, Xjig.new('a' => :alpha).plug(:alpha, lambda { nil }).to_s, 'plugging an attribute with a proc returning nil')
-			assert_equal(%Q{}, Xjig.new({'a',Jig::INNER}).plug(lambda { nil }).to_s, 'plugging an attribute with a proc returning nil')
+			assert_equal(%Q{}, Xjig.new({'a',Jig::GAP}).plug(lambda { nil }).to_s, 'plugging an attribute with a proc returning nil')
 
 			# plugging  gaps with other jigs
-			assert_equal(%Q{abc}, Xjig.new("a", Jig::INNER, "c").plug(Xjig.new("b")).to_s, 'pluging gap with string Xjig')
+			assert_equal(%Q{abc}, Xjig.new("a", Jig::GAP, "c").plug(Xjig.new("b")).to_s, 'pluging gap with string Xjig')
 			assert_equal(%Q{ac}, Xjig.new("a", :alpha, "c").plug(Xjig.new("b")).to_s, 'pluging non-existant gap')
 			assert_not_equal(%Q{abc}, Xjig.new("a", :alpha, "c").plug(Xjig.new("b")).to_s, 'pluging non-existant gap')
 			assert_equal(%Q{ac}, Xjig.new("a", :alpha, "c").plug(Xjig.new(:beta)).to_s, 'pluging gap with a gap')
@@ -157,9 +157,9 @@ class Xjig
 			assert_equal(%Q{abc}, Xjig.new("a", :alpha, "c").plug(:alpha, Xjig.new(:beta)).plug(:beta, "b").to_s, 'pluging gap with a gap')
 
 			# implicit plugs
-			assert_equal(%Q{abc}, (Xjig.new("a", Jig::INNER, "c") << Xjig.new(Jig::INNER) << "b").to_s, 'implicit names: plugging gap with a gap')
-			assert_equal(%Q{abc}, (Xjig.new("a", Jig::INNER, "c") << Xjig.new(Jig::INNER) << "b").to_s, 'implicit names: plugging gap with a gap')
-			assert_equal(%Q{abc}, (Xjig.new("a", Jig::INNER, "c") << Xjig.new << "b").to_s, 'implicit names: plugging gap with a gap')
+			assert_equal(%Q{abc}, (Xjig.new("a", Jig::GAP, "c") << Xjig.new(Jig::GAP) << "b").to_s, 'implicit names: plugging gap with a gap')
+			assert_equal(%Q{abc}, (Xjig.new("a", Jig::GAP, "c") << Xjig.new(Jig::GAP) << "b").to_s, 'implicit names: plugging gap with a gap')
+			assert_equal(%Q{abc}, (Xjig.new("a", Jig::GAP, "c") << Xjig.new << "b").to_s, 'implicit names: plugging gap with a gap')
 		end
 
 		def test_array
@@ -167,17 +167,17 @@ class Xjig
 			assert_equal(%Q{}, (Xjig.new << []).to_s)
 			assert_equal(%Q{ab}, (Xjig.new << ["a", "b"]).to_s)
 			assert_equal(%Q{ab}, (Xjig.new << [["a", "b"]]).to_s)
-			assert_equal(%Q{ab}, (Xjig.new << { Jig::INNER => ["a", "b"]}).to_s)
+			assert_equal(%Q{ab}, (Xjig.new << { Jig::GAP => ["a", "b"]}).to_s)
 			assert_equal(%Q{}, (Xjig.new << {:alpha, ["b"]}).to_s)
 			assert_equal(%Q{}, (Xjig.new << { :alpha => "b" }).to_s)
-			assert_equal(%Q{b}, (Xjig.new << { Jig::INNER => Xjig[:alpha, "b"] }).to_s)
-			assert_equal(%Q{ab}, (Xjig.new << { Jig::INNER => Xjig[:alpha, "b"] } << { :alpha => "a" } ).to_s)
+			assert_equal(%Q{b}, (Xjig.new << { Jig::GAP => Xjig[:alpha, "b"] }).to_s)
+			assert_equal(%Q{ab}, (Xjig.new << { Jig::GAP => Xjig[:alpha, "b"] } << { :alpha => "a" } ).to_s)
 			#assert_equal(%Q{cb}, (Xjig.new << Xjig[:alpha, "b"] << {:alpha, "c"}).to_s)
 			assert_equal(%Q{cb}, (Xjig.new << Xjig[:alpha, "b"] << {:alpha => "c"}).to_s)
 			assert_equal(%Q{cb}, ((Xjig.new << Xjig[:alpha, "b"]).plug(:alpha,"c")).to_s)
 			assert_equal(%Q{b}, (Xjig.new(:alpha) << {:alpha, "b"} << {:alpha, "c"}).to_s)
 			assert_equal(%Q{cb}, (Xjig.new << Xjig.new(:alpha, "b") << {:alpha, "c"}).to_s)
-			assert_equal(%Q{cb}, (Xjig.new.plug(Jig::INNER, Xjig[:alpha, "b"]) << {:alpha, "c"}).to_s)
+			assert_equal(%Q{cb}, (Xjig.new.plug(Jig::GAP, Xjig[:alpha, "b"]) << {:alpha, "c"}).to_s)
 		end
 
 		def test_element
@@ -186,8 +186,8 @@ class Xjig
 			assert_equal(@div, Xjig.element.to_s, 'default element as "div"')
 
 			assert_equal(@div, Xjig.element(:div).to_s)
-			assert_equal(@div, Xjig.element(:div, Jig::INNER).to_s)
-			assert_equal(@div, Xjig.element(:div, Jig::INNER).to_s)
+			assert_equal(@div, Xjig.element(:div, Jig::GAP).to_s)
+			assert_equal(@div, Xjig.element(:div, Jig::GAP).to_s)
 			assert_equal(@div, Xjig.element(:div, Xjig.new).to_s)
 
 			@div2 = "<div>\ninside</div>\n"
@@ -211,8 +211,8 @@ class Xjig
 
 		def test_method_missing
 			assert_equal(Xjig.div, Xjig.element(:div))
-			assert_equal(Xjig.div(Jig::INNER), Xjig.element(:div, Jig::INNER))
-			assert_equal(Xjig.div(Jig::INNER), Xjig.element(:div, Jig::INNER))
+			assert_equal(Xjig.div(Jig::GAP), Xjig.element(:div, Jig::GAP))
+			assert_equal(Xjig.div(Jig::GAP), Xjig.element(:div, Jig::GAP))
 			assert_equal(Xjig.div(Xjig.new), Xjig.element(:div, Xjig.new))
 
 			assert_equal(Xjig.div_, Xjig.div)
@@ -277,7 +277,7 @@ class Xjig
 
 		def test_misc
 			#assert_raise(ArgumentError, 'attribute must be string') { Xjig.div('a' => :gap) << Xjig.p }
-			#assert_raise(ArgumentError) { ((Xjig.div('a' => Jig::INNER) << Xjig.p).to_s) }
+			#assert_raise(ArgumentError) { ((Xjig.div('a' => Jig::GAP) << Xjig.p).to_s) }
 
 			assert_equal( "ab", (Xjig.new(:alpha, :beta) << {:alpha => 'a', :beta => 'b'}).to_s)
 			assert_equal( "<div>\n</div>\n", (Xjig.div).to_s)
@@ -297,11 +297,11 @@ class Xjig
 
 		def test_001_identities
 			# empty jigs and gaps
-      assert_instance_of(Symbol, Jig::INNER,	'Jig::INNER constant')
+      assert_instance_of(Symbol, Jig::GAP,	'Jig::GAP constant')
 			assert_instance_of(Xjig, Xjig.new,		'EMPTY constant')
-			assert_similar(Xjig.new(Jig::INNER), (Xjig.new), 'manual construction of an empty jig')
-			assert_equal(Xjig.new(Jig::INNER), Xjig.new, 								'manual construction of an empty jig')
-			assert_not_same(Xjig.new(Jig::INNER), Xjig.new, 						'manual construction of an empty jig is unique')
+			assert_similar(Xjig.new(Jig::GAP), (Xjig.new), 'manual construction of an empty jig')
+			assert_equal(Xjig.new(Jig::GAP), Xjig.new, 								'manual construction of an empty jig')
+			assert_not_same(Xjig.new(Jig::GAP), Xjig.new, 						'manual construction of an empty jig is unique')
 
 			assert_instance_of(Xjig, Xjig.new,			'empty construction')
 			assert_instance_of(Xjig, Xjig.null,				'blank construction')
@@ -325,9 +325,9 @@ class Xjig
 
 			# gaps surrounding string
 			assert_equal("string", Xjig.new("string").to_s)
-			assert_equal("string", Xjig.new("string", Jig::INNER).to_s)
-			assert_equal("string", Xjig.new(Jig::INNER, "string").to_s)
-			assert_equal("string", Xjig.new(Jig::INNER, "string", Jig::INNER).to_s)
+			assert_equal("string", Xjig.new("string", Jig::GAP).to_s)
+			assert_equal("string", Xjig.new(Jig::GAP, "string").to_s)
+			assert_equal("string", Xjig.new(Jig::GAP, "string", Jig::GAP).to_s)
 
 			# strings surrounding gaps
 			assert_kind_of(Xjig, Xjig.new("a", :gap, "c"))
@@ -359,9 +359,9 @@ class Xjig
 			assert_equal("()X", Xjig.new("(", ")", :gap).plug(:gap, "X").to_s)
 
 			# method_missing
-			assert_equal("Aa", Xjig.new("A", Jig::INNER, "a").to_s)
-			assert_equal("AXa", Xjig.new("A", Jig::INNER, "a").plug(Jig::INNER, "X").to_s)
-			#assert_equal(Xjig.new("A", Jig::INNER, "a"), Xjig.a)
+			assert_equal("Aa", Xjig.new("A", Jig::GAP, "a").to_s)
+			assert_equal("AXa", Xjig.new("A", Jig::GAP, "a").plug(Jig::GAP, "X").to_s)
+			#assert_equal(Xjig.new("A", Jig::GAP, "a"), Xjig.a)
 			#assert_not_equal(Xjig.new("A", :gap, "a"), Xjig.a)
 
 
@@ -370,10 +370,10 @@ class Xjig
 
 			@X = Xjig.new("X")
 			assert_similar(Xjig.new("-X"), Xjig.new("-", :gap).plug(:gap, "X"))
-			@X = Xjig.new("X", Jig::INNER, "x")
+			@X = Xjig.new("X", Jig::GAP, "x")
 			assert_not_equal(	Xjig.new("-Xx"), 					Xjig.new("-", :gap).plug(:gap, @X), 'remaining gap')
-			assert_not_equal(	Xjig.new("-X", :gap, "x"),	Xjig.new("-", :gap).plug(:gap, @X), 'Jig::INNER != :gap')
-			assert_similar(    	Xjig.new("-","X", Jig::INNER, "x"), 	Xjig.new("-", :gap).plug(:gap, @X), 'Jig::INNER == Jig::INNER')
+			assert_not_equal(	Xjig.new("-X", :gap, "x"),	Xjig.new("-", :gap).plug(:gap, @X), 'Jig::GAP != :gap')
+			assert_similar(    	Xjig.new("-","X", Jig::GAP, "x"), 	Xjig.new("-", :gap).plug(:gap, @X), 'Jig::GAP == Jig::GAP')
 
 			assert_similar(	Xjig.new("abXx"), 					Xjig.new("a", "b", :gap).plug(:gap, @X), 'gap in the middle')
 			assert_similar(	Xjig.new("aXxb"), 					Xjig.new("a", :gap, "b").plug(:gap, @X), 'gap in the middle')
@@ -400,17 +400,17 @@ class Xjig
 
 		def test_plugging
 			# plugging gaps
-			assert_kind_of(Xjig, Xjig.new("a", Jig::INNER, "c").plug("b"))
-			assert_kind_of(String, Xjig.new("a", Jig::INNER, "c").plug("b").to_s)
-			assert_equal("abc", Xjig.new("a", Jig::INNER, "c").plug("b").to_s)
-			assert_equal("XaX", Xjig.new(Jig::INNER, "a", Jig::INNER).plug("X").to_s)
+			assert_kind_of(Xjig, Xjig.new("a", Jig::GAP, "c").plug("b"))
+			assert_kind_of(String, Xjig.new("a", Jig::GAP, "c").plug("b").to_s)
+			assert_equal("abc", Xjig.new("a", Jig::GAP, "c").plug("b").to_s)
+			assert_equal("XaX", Xjig.new(Jig::GAP, "a", Jig::GAP).plug("X").to_s)
 
 			# using << instead of #plug
 			assert_nothing_raised(RuntimeError) { Xjig.new("a", "c") << ("b") }
-			assert_kind_of(Xjig, Xjig.new("a", Jig::INNER, "c") << ("b"))
-			assert_kind_of(String, (Xjig.new("a", Jig::INNER, "c")<<("b")).to_s)
-			assert_equal("abc", (Xjig.new("a", Jig::INNER, "c")<<("b")).to_s)
-			assert_equal("XaX", (Xjig.new(Jig::INNER, "a", Jig::INNER)<<("X")).to_s)
+			assert_kind_of(Xjig, Xjig.new("a", Jig::GAP, "c") << ("b"))
+			assert_kind_of(String, (Xjig.new("a", Jig::GAP, "c")<<("b")).to_s)
+			assert_equal("abc", (Xjig.new("a", Jig::GAP, "c")<<("b")).to_s)
+			assert_equal("XaX", (Xjig.new(Jig::GAP, "a", Jig::GAP)<<("X")).to_s)
 
 			# named gaps
 			assert_equal(Xjig.new(:alpha).to_s, Xjig.new(:beta).to_s)
@@ -429,7 +429,7 @@ class Xjig
 			assert_equal(%Q{}, Xjig.new({'a',:a}).plug(lambda { nil }).to_s, 'plugging an attribute with a proc returning nil')
 
 			# plugging  gaps with other jigs
-			assert_equal(%Q{abc}, Xjig.new("a", Jig::INNER, "c").plug(Xjig.new("b")).to_s, 'pluging gap with string Xjig')
+			assert_equal(%Q{abc}, Xjig.new("a", Jig::GAP, "c").plug(Xjig.new("b")).to_s, 'pluging gap with string Xjig')
 			assert_nothing_raised(RuntimeError, 'pluging non-existant gap') { Xjig.new("a", :alpha, "c").plug(Xjig.new("b")).to_s }
 			assert_equal(%Q{ac}, Xjig.new("a", :alpha, "c").plug(:alpha, Xjig.new(:beta)).to_s, 'pluging gap with a gap')
 			assert_not_equal(%Q{abc}, Xjig.new("a", :alpha, "c").plug(:alpha, Xjig.new(:beta)).to_s, 'pluging gap with a gap')
@@ -437,9 +437,9 @@ class Xjig
 			assert_equal(%Q{abc}, Xjig.new("a", :alpha, "c").plug(:alpha, Xjig.new(:beta)).plug(:beta, "b").to_s, 'pluging gap with a gap')
 
 			# implicit plugs
-			assert_equal(%Q{abc}, (Xjig.new("a", Jig::INNER, "c") << Xjig.new(Jig::INNER) << "b").to_s, 'implicit names: plugging gap with a gap')
-			assert_equal(%Q{abc}, (Xjig.new("a", Jig::INNER, "c") << Xjig.new(Jig::INNER) << "b").to_s, 'implicit names: plugging gap with a gap')
-			assert_equal(%Q{abc}, (Xjig.new("a", Jig::INNER, "c") << Xjig.new << "b").to_s, 'implicit names: plugging gap with a gap')
+			assert_equal(%Q{abc}, (Xjig.new("a", Jig::GAP, "c") << Xjig.new(Jig::GAP) << "b").to_s, 'implicit names: plugging gap with a gap')
+			assert_equal(%Q{abc}, (Xjig.new("a", Jig::GAP, "c") << Xjig.new(Jig::GAP) << "b").to_s, 'implicit names: plugging gap with a gap')
+			assert_equal(%Q{abc}, (Xjig.new("a", Jig::GAP, "c") << Xjig.new << "b").to_s, 'implicit names: plugging gap with a gap')
 
 		end
 	end
@@ -461,7 +461,7 @@ class Xjig
 		def test_003
 			assert_similar(Xjig.new("abc"), Xjig.new("a") + Xjig.new("b") + Xjig.new("c"))
 			assert_similar(Xjig.new("abc"), Xjig.new << Xjig[Xjig.new("a"), Xjig.new("b"), Xjig.new("c")])
-			assert_similar(Xjig.new("abc"), Xjig.new << Xjig[Xjig.new("a"), Jig::INNER, Xjig.new("c")] << "b")
+			assert_similar(Xjig.new("abc"), Xjig.new << Xjig[Xjig.new("a"), Jig::GAP, Xjig.new("c")] << "b")
 		end
 
 		def test_addition
@@ -470,7 +470,7 @@ class Xjig
 
 		def test_misc
 			#assert_raise(ArgumentError, 'attribute must be string') { Xjig.div('a' => :gap) << Xjig.p }
-			#assert_raise(ArgumentError) { ((Xjig.div('a' => Jig::INNER) << Xjig.p).to_s) }
+			#assert_raise(ArgumentError) { ((Xjig.div('a' => Jig::GAP) << Xjig.p).to_s) }
 
 			assert_equal( "ab", (Xjig.new(:alpha, :beta) << {:alpha => 'a', :beta => 'b'}).to_s)
 			assert_equal( "<div>\n</div>\n", (Xjig.div).to_s)
@@ -500,7 +500,7 @@ class Xjig
 		end
 
 		def test_1105
-			assert_equal("xyzyx", (Xjig.new("x", Jig::INNER, "x") * [Xjig.new("y", Jig::INNER, "y")]).plug("z").to_s)
+			assert_equal("xyzyx", (Xjig.new("x", Jig::GAP, "x") * [Xjig.new("y", Jig::GAP, "y")]).plug("z").to_s)
 		end
 
 		def test_attribute_with_gap
@@ -513,7 +513,7 @@ class Xjig
 		def xtest_depth
 			a = Xjig.new
 			b = Xjig.new(:"a/b")
-			assert_equal(0, a[Jig::INNER].depth)
+			assert_equal(0, a[Jig::GAP].depth)
 			assert_equal(1, b[:"a/b"].depth)
 		end
 
@@ -563,8 +563,8 @@ class Xjig
 		def test_conversion
 			a = Xjig.new('a', :alpha, 'b')
 			assert_equal("axb", a.plug(:alpha, :beta).plug(:beta, 'x').to_s)
-			b = ['gamma']
-			class <<b; def to_jig() Xjig.new(self.to_s[0,1]); end; end
+			b = Object.new
+			class <<b; def to_jig() Xjig.new('g'); end; end
 			assert_equal("agb", a.plug(:alpha, :beta).plug(:beta, b).to_s)
 		end
 
@@ -586,5 +586,27 @@ class Xjig
       id, href = %Q{id="#{j.eid}"}, 'href="foo"'
 			assert_match(%r{<a (#{id} #{href}|#{href} #{id})></a>\n}, j.to_s)
 		end
+
+    def test_plug_from_hash
+      j = Jig.new(:alpha, :beta)
+      h = {:alpha => 'a', :beta => 'b' }
+      h2 = {:alpha => :beta, :beta => 'b' }
+      assert_equal("ab", j.plug(h).to_s)
+      result2 = j.plug(h2)
+      assert_equal("b", result2.to_s)
+      assert_equal([:beta], result2.gaps)
+    end
+
+    def test_plug_block
+      j = Jig.new(:alpha, :beta)
+      h = {:alpha => 'a', :beta => 'b' }
+      assert_equal("ab", j.plug {|g| h[g] }.to_s)
+    end
+
+    def test_plug_gap_sequence
+      c = Jig.new.plug(:___, :title, :head, :foo)
+      assert_equal([:title, :head, :foo], c.gaps)
+      assert_equal(4, c.contents.size)
+    end
 	end
 end
