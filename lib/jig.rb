@@ -1,6 +1,5 @@
 
 require 'strscan'
-require 'set'
 
 =begin rdoc
 A jig is an ordered sequence of objects and named gaps. During construction,
@@ -83,10 +82,10 @@ Attributes can be specified with a hash:
 
 =end
 class Jig
+  VERSION = '0.8.0'
   autoload(:XML, "jig/xml")
   autoload(:XHTML, "jig/xhtml")
   autoload(:CSS, "jig/css")
-  VERSION = '0.8.0'
   GapPattern = "[a-zA-Z_/][a-zA-Z0-9_/]*"
 
   # A Gap represents a named position within the ordered sequence of objects
@@ -171,7 +170,7 @@ class Jig
   #   Jig.new('a').full?       # false
   #   Jig.new.plug('a').full?  # false
   def open?
-    !closed?
+    not rawgaps.empty?
   end
 
   # Returns _true_ if the jig has no gaps and corresponds to the empty string.
@@ -182,8 +181,8 @@ class Jig
     closed? && to_s.empty?
   end
 
-  # Returns an array containing the names, in order, of the gaps.
-  # A name may occur more than once in the list.
+  # Returns an array containing the names, in order, of the gaps in
+  # the current jig.  A name may occur more than once in the list.
   def gaps
     rawgaps.collect { |g| g.name }
   end
@@ -196,24 +195,58 @@ class Jig
   # Returns the position of the named gap or nil if the gap
   # is not found.
   def index(name)
-    rawgaps.each_with_index {|g,i| return i if g.name == name }
+    rawgaps.each_with_index {|g,i| return (i*2)+1 if g.name == name }
     nil
   end
 
   # call-seq:
   #   slice(n)  -> jig
+  #   slice(s..e)  -> jig
   #   slice(name) -> gap
   #
   # Extracts parts of a jig.  If an integer index is provided the
-  # contents preceeding to the nth gap is returned as a jig.
+  # contents preceeding the nth gap is returned as a jig.
+  # If called with a range index, the contents selected by the
+  # range is returned as well as any gaps within that range.
   # If a non-numeric index is provided, the gap with the matching
   # name is returned. Returns nil if the numeric index is out of range or the
   # named gap is not found.
+  #
+  #   j = Jig.new('0', :alpha, '1', :beta, '2')
+  #   j.slice(:alpha)         # #<Gap: :alpha >
+  #   j.slice(0)              # Jig['0']
+  #   j.slice(0..1)           # Jig['0', :alpha, '1']
   def slice(index)
     if Integer === index
-      Jig[contents[index]]
+      if (index % 2).zero?
+        Jig[contents[index/2]]
+      else
+        rawgaps[(index-1)/2]
+      end
     elsif Range === index
-      Jig[*contents[index].zip(rawgaps[(index.begin...index.end)]).flatten]
+      j = Jig.new
+      altindex = lambda { |x| (contents.size-1)*2 + x + 1 }
+      b = (index.begin >= 0) && index.begin || altindex[index.begin]
+      e = (index.end >= 0) && index.end || altindex[index.end]
+      index = b..e
+      case [index.begin % 2, index.end % 2]
+      when [0,0]
+        j.rawgaps = rawgaps[(index.begin/2)...(index.end/2)]
+        j.contents = contents[(index.begin/2)..(index.end/2)]
+      when [0,1]
+        j.rawgaps = rawgaps[(index.begin/2)...((index.end+1)/2)]
+        j.contents = contents[(index.begin/2)..((index.end-1)/2)].push([])
+      when [1,0]
+        j.rawgaps = rawgaps[((index.begin-1)/2)...((index.end)/2)]
+        j.contents = contents[(index.begin+1/2)..((index.end)/2)].unshift([])
+      when [1,1]
+        j.rawgaps = rawgaps[((index.begin-1)/2)...((index.end+1)/2)]
+        j.contents = contents[((index.begin+1)/2)..((index.end-1)/2)].push([]).unshift([])
+      end
+      if !j.contents or !j.rawgaps
+        raise ArgumentError, "index #{index} out of range"
+      end
+      j
     else
       has_gap?(index)
     end
