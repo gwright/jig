@@ -82,10 +82,12 @@ Attributes can be specified with a hash:
 
 =end
 class Jig
+  module Mixin
+  end
   VERSION = '0.8.0'
-  autoload(:XML, "jig/xml")
-  autoload(:XHTML, "jig/xhtml")
-  autoload(:CSS, "jig/css")
+  autoload :XML, "jig/xml"
+  autoload :XHTML, "jig/xhtml"
+  autoload :CSS, "jig/css"
   GapPattern = "[a-zA-Z_/][a-zA-Z0-9_/]*"
 
   # A Gap represents a named position within the ordered sequence of objects
@@ -612,6 +614,22 @@ class Jig
     contents.join
   end
 
+  def split(*args)
+    if args.empty?
+      contents.map { |c| c.join }
+    else
+      to_s.split(*args)
+    end
+  end
+
+  def join(*args)
+    contents.join(*args)
+  end
+
+  def open(*args, &b)
+    join.open(*args, &b)
+  end
+
   private 
 
   # This method is where the magic happens. The contents and gap arrays
@@ -800,7 +818,7 @@ class Jig
     end
 
     # Incorporate methods and class methods specific to _feature_.
-    def enable(*features)
+    def xenable(*features)
       features.map do |f|
         begin
           begin
@@ -815,7 +833,7 @@ class Jig
       end
     end
 
-    def derive(*features)
+    def xderive(*features)
       Class.new(self) {
         enable(*features)
       }
@@ -848,8 +866,8 @@ class Jig
     def ^(*args)
       multn(*args)
     end
-
   end
+  include Base
 
   module Proxy
     def method_missing(*a, &b)
@@ -857,5 +875,3 @@ class Jig
     end
   end
 end
-
-Jig.enable :Base
