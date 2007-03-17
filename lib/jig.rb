@@ -82,8 +82,6 @@ Attributes can be specified with a hash:
 
 =end
 class Jig
-  module Mixin
-  end
   VERSION = '0.8.0'
   autoload :XML, "jig/xml"
   autoload :XHTML, "jig/xhtml"
@@ -129,10 +127,8 @@ class Jig
 
   attr_accessor  :contents    # the sequence of objects
   protected      :contents=
-  attr_accessor  :rawgaps        # the unfilled gaps
+  attr_accessor  :rawgaps     # the unfilled gaps
   protected      :rawgaps=
-  attr_accessor  :extra       # extra state information, used by extensions
-  protected      :extra
 
   class <<self
     alias [] :new
@@ -295,7 +291,6 @@ class Jig
   def initialize(*items, &block)
     @contents = [[]]
     @rawgaps = []
-    @extra = {}
     items.push(block) if block
     items.push(DEFAULT_GAP) if items.empty?
     concat(items)
@@ -308,7 +303,6 @@ class Jig
     super
     @contents.freeze
     @rawgaps.freeze
-    @extra.freeze
     self
   end
 
@@ -353,7 +347,6 @@ class Jig
     other = super
     other.contents = @contents.dup
     other.rawgaps = @rawgaps.dup
-    other.extra = @extra.dup
     other
   end
 

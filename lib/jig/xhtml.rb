@@ -3,6 +3,24 @@ require 'jig/xml'
 
 class Jig
   class XHTML < XML
+    attr_accessor :extra
+    protected :extra
+
+    def initialize(*args)
+      super
+      @extra = {}
+    end
+
+    def initialize_copy(other)
+      super
+      @extra = other.extra.dup
+    end
+
+    def freeze
+      @extra.freeze
+      super
+    end
+
     def eid
       extra[:eid]
     end
