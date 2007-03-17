@@ -341,13 +341,10 @@ class Jig
     Jig[array.zip((1..(array.size - 1)).to_a.map { self.dup })]
   end
 
-  # A duplicate jig is returned.  This is a shallow copy, the 
-  # contents of the jig are not duplicated.
-  def dup
-    other = super
-    other.contents = @contents.dup
-    other.rawgaps = @rawgaps.dup
-    other
+  def initialize_copy(other)
+    @contents = other.contents.dup
+    @rawgaps = other.rawgaps.dup
+    super
   end
 
   # Pushes the items onto the end of the current jig.
