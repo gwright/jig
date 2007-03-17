@@ -1,8 +1,22 @@
 require 'jig'
 
 class Jig
+  # Jig::XML is a subclass of Jig designed to simplify construction of
+  # strings containing XML elements.
+  #
+  # Expression             
+  # Jig.xml               
+  #           => #<Jig: ["<?xml", " version=\"1.0\"", " ?>\n"]>
+  #
+  # Jig.comment("sample")  
+  #           => #<Jig: ["<!-- ", "sample", " -->\n"]>
+  #
+  # Jig.book(Jig.title('War and Peace'))
+  #           => #<Jig: ["<book", nil, ">", "<title", nil, ">\n", "War and Peace", "</title>\n", "</book>\n"]>
+
   class XML < Jig
-    # Element ID: 
+    # Converts _hash_ into attribute value pairs and pushes them
+    # on the end of the jig.
     def push_hash(hash)
       push(*hash.map { |k,v| self.class.attribute(k, v) })
     end
@@ -11,7 +25,19 @@ class Jig
     class <<self
       Newlines = [:html, :head, :body, :title, :div, :p, :table, :script, :form]
       Encode = Hash[*%w{& amp " quot > gt < lt}]
-      # Convert the name, value pair into an attribute gap.
+
+      # Prepare _aname_ and _value_ for use as an attribute pair in an XML jig.
+      # If _value_ is a symbol or Gap, an attribute gap is returned.  The
+      # construction of the XML attribute string in this case is deferred until
+      # the gap is plugged and is handled by the attribute gap itself.
+      # 
+      # If _value_ is neither a symbol or a Gap, the pair is passed to aplug
+      # to be converted to a string or jig if necessary. See the aplug for
+      # details.
+      #
+      #   attribute('value', :firstname)       Gap.new(:firstname) { ... }
+      #   attribute('type', 'password')        'type="password"'
+      #   attribute('type', nil)               ''
       def attribute(aname, value)
         if Symbol === value
           Gap.new(value) { |fill| aplug(aname, fill) }
@@ -21,31 +47,32 @@ class Jig
           aplug(aname, value)
         end
       end
-      #module_function :attribute
-      #public :attribute
 
-      # If value is false, return null string.
-      # Otherwise render name and value as an XML attribute pair:
+      # Returns an object that evaluates to an XML attribute specification when
+      # to_s is called.  The null string is returned if value is determined to
+      # be false or nil.
       #
-      # If value is not a Jig and is not a Proc, the string is constructed and returned.
-      # A Proc or a Jig, which may indirectly reference a Proc, is handled by constructing
-      # a lambda that responds to _to_s_.  The evaluation of the Proc or Jig is thus delayed
-      # until _to_s_ is called.
+      # If value is not true, returns the null string immediately.
+      # If value is neither a jig nor an object that responds to _call_, the 
+      # corresponding XML attribute specification is constructed and returned.
+      # 
+      # If value is a proc or a jig then the construction of the XML attribute must be
+      # deferred. In this case a jig is returned.   When rendered, the jig will
+      # evaluate value and return an attribute specification if value is true. 
+      # Otherwise the the jig will render as a null string.
+      #
+      #   aplug('lastname', 'Einstein')               'lastname="Einstein"'
+      #   aplug('lastname', nil)                      ''
+      #   as = aplug('lastname', Jig.new('Einstein')
+      #   as.to_s                                     'lastname="Einstein"'
+      #   as = aplug('lastname', Jig.new { 
       def aplug(name, value)
         return "" unless value
         return " #{name}=\"#{value}\"" unless value.respond_to?(:call) or Jig === value
-        if Jig === value
-          jig, value = value, lambda { jig.to_s }
+        Jig.new do
+          value = value.call if value.respond_to?(:call)
+          value && %Q{ #{name}="#{value}"} || ""
         end
-        future = lambda do
-          if v = value.call
-            %Q{ #{name}="#{v}"}
-          else
-            ""
-          end
-        end
-        def future.to_s; call; end
-        future
       end
       private :aplug
       #module_function :aplug
@@ -119,8 +146,6 @@ class Jig
         attrs = args.last.respond_to?(:fetch) && args.pop || nil
         args.push(lambda{|*x| yield(*x) }) if block_given?
         args.push GAP if args.empty?
-        #warn "args is: #{args.inspect}"
-        #warn "attsr is: #{attrs.inspect}"
         _element(tag).plug(ATTRS => attrs, GAP => args)
       end
 
@@ -136,7 +161,7 @@ class Jig
         attrs = { :version => '1.0' }
         attrs.merge!(args.pop) if args.last.respond_to?(:fetch) 
         args.push(lambda{|*x| yield(*x) }) if block_given?
-        new("<?xml", attrs, "?>\n", *args)
+        new("<?xml", attrs, " ?>\n", *args)
       end
 
       Cache = {}
@@ -144,14 +169,14 @@ class Jig
         args.push(lambda{|*x| yield(*x) }) if block_given?
         args.push GAP if args.empty?
         jig = (Cache[:cdata] ||= new("<![CDATA[\n".freeze, GAP, " ]]>\n".freeze).freeze)
-        jig.plug(*args)
+        jig.plug(GAP, *args)
       end
 
       def comment(*args)
         args.push(lambda{|*x| yield(*x) }) if block_given?
         args.push GAP if args.empty?
         jig = (Cache[:comment] ||= new("<!-- ".freeze, GAP, " -->\n".freeze).freeze)
-        jig.plug(*args)
+        jig.plug(GAP, *args)
       end
 
       def comments(*args)

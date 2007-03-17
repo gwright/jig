@@ -98,7 +98,6 @@ class Jig
   class Gap
     ATTRS = :__a
     GAP = :___
-    Identity = lambda { |*filling| return *filling }
     attr :name    # the name associated with the gap
     attr :filter  # the lambda associated with the gap
 
@@ -106,7 +105,7 @@ class Jig
     # the filter for replacement items.
     def initialize(name=GAP, &filter)
       @name = name.to_sym
-      @filter = filter && lambda(&filter) || Identity
+      @filter = filter && lambda(&filter)
     end
 
     def inspect
@@ -115,18 +114,13 @@ class Jig
 
     # Pass the replacement items through the filter.
     def fill(*filling)
-      filter[*filling]
+      return *(filter && filter[*filling] || filling)
     end
 
     # Two gaps are equal if they have the same name and
     # use the same filter.
     def ==(other)
       name == other.name && filter == other.filter
-    end
-
-    # Returns _true_ if the filter is the default identity filter.
-    def identity?
-      @filter == Identity
     end
   end
 
@@ -155,7 +149,7 @@ class Jig
   # Gaps with associated filters are shown with trailing braces: :gap{}.
   #   Jig.new.inspect         # #<Jig: [:___]>
   def inspect
-    info = rawgaps.map {|g| g.identity? && g.name || "#{g.name}{}" }
+    info = rawgaps.map {|g| g.filter && "#{g.name}{}".to_sym || g.name }
     "#<Jig: #{contents.zip(info).flatten[0..-2].inspect}>"
   end
 
@@ -302,12 +296,9 @@ class Jig
     @contents = [[]]
     @rawgaps = []
     @extra = {}
-    if items.empty? && !block
-      push_gap(DEFAULT_GAP)
-    else
-      push(*items)
-      push(block) if block
-    end
+    items.push(block) if block
+    items.push(DEFAULT_GAP) if items.empty?
+    concat(items)
   end
 
   # Applies Kernel#freeze to the jig and its internal structures.  A frozen jig
@@ -679,6 +670,10 @@ class Jig
       end
       match = list.size
       fill = *gap.fill(items)
+      if !fill
+        contents[match,2] = [[contents[match],contents[match+1]]]
+        next list
+      end
       case fill
       when Jig
         insert[match,fill]
