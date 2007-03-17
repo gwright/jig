@@ -1,7 +1,7 @@
 require 'jig'
 require 'test/unit'
 
-Xjig = Jig.derive(:XML, :XHTML, :JavaScript)
+Xjig = Jig::XHTML
 
 module XjigTest
 	def assert_similar(a,b, mess="")
@@ -11,15 +11,6 @@ module XjigTest
 	def assert_not_similar(a, b, mess="")
 		assert_not_match(a, b, mess)
 	end
-end
-
-class TestMeta < Test::Unit::TestCase
-  def test_css
-    css = Jig.derive :CSS
-    assert(css < Jig, 'created subclass')
-    assert(css.included_modules.include?(Jig::CSS), 'included correct modules')
-    assert((class <<css; self; end).included_modules.include?(Jig::CSS::ClassMethods), 'included correct modules')
-  end
 end
 
 

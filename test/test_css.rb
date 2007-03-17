@@ -2,7 +2,7 @@
 require 'jig'
 require 'test/unit'
 
-CSS = Jig.derive(:CSS)
+CSS = Jig::CSS
 
 module Asserts
   def assert_as_string(expected, jig, message='')

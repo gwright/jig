@@ -1,23 +1,16 @@
 require 'jig'
 
 class Jig
-  module Mixin
-    module XML
-      def self.included other
-        other.module_eval { extend ClassMethods }
-      end
-      # Element ID: 
-      def push_hash(hash)
-        push(*hash.map { |k,v| self.class.attribute(k, v) })
-      end
-      protected :push_hash
-
+  class XML < Jig
+    # Element ID: 
+    def push_hash(hash)
+      push(*hash.map { |k,v| self.class.attribute(k, v) })
     end
+    protected :push_hash
 
-    module XML::ClassMethods
+    class <<self
       Newlines = [:html, :head, :body, :title, :div, :p, :table, :script, :form]
       Encode = Hash[*%w{& amp " quot > gt < lt}]
-
       # Convert the name, value pair into an attribute gap.
       def attribute(aname, value)
         if Symbol === value
@@ -28,8 +21,8 @@ class Jig
           aplug(aname, value)
         end
       end
-      module_function :attribute
-      public :attribute
+      #module_function :attribute
+      #public :attribute
 
       # If value is false, return null string.
       # Otherwise render name and value as an XML attribute pair:
@@ -55,10 +48,10 @@ class Jig
         future
       end
       private :aplug
-      module_function :aplug
+      #module_function :aplug
 
       ATTRS = Gap::ATTRS
-      ATTRS_GAP = Gap.new(ATTRS) { |h| h && h.map { |k,v| attribute(k, v) } }
+      ATTRS_GAP = Gap.new(ATTRS) { |h| h && h.map { |k,v| Jig::XML.attribute(k, v) } }
 
       def escape(target)
         unless Jig === target 
@@ -167,10 +160,6 @@ class Jig
         args.push "\n"
         comment("\n", *args)
       end
-    end
-  end
-end
-
-class Jig::XML < Jig
-  include Jig::Mixin::XML
-end
+    end # class <<self
+  end # class XML
+end # module Jig
