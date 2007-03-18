@@ -374,11 +374,11 @@ class Jig
   def push(*items)
     items.each do |i|
       case i
-      when NilClass, FalseClass then next
-      when Symbol   then push_gap Gap.new(i)
       when String   then contents.last << i
-      when Jig::Gap then push_gap i
+      when Symbol   then push_gap Gap.new(i)
       when Jig      then push_jig i
+      when NilClass, FalseClass then next
+      when Jig::Gap then push_gap i
       else 
         if respond_to?(p = "push_#{i.class.name.downcase}")
           send(p, i)
@@ -439,22 +439,20 @@ class Jig
   end
   alias []= :plug!
 
-  def plugn!(first, *more, &block)
-    case first
-    when Integer
-      index = first
+  def plugn!(*args, &block)
+    if block
+      filln!(&block)
+    elsif (first = args.first).respond_to?(:has_key?)
+      filln!(first) 
+    elsif Integer === args.first
+      filln!(first => (x = *args[1..-1]))
+    elsif Array === args.first && args.size == 1
+      filln! { |index| args.first[index] }
+    elsif args.empty?
+      filln! { nil }
     else
-      more.unshift first
-      index = 0
+      filln!(0 => (x = *args))
     end
-    more.push(block) if block
-    _plugn!(index, *more)
-  end
-
-  def multn(items)
-    (0...[rawgaps.size,items.size].min).inject(self) { |j,i|
-      j.plugn 0, items[i]
-    }
   end
 
   # call-seq:
@@ -617,23 +615,28 @@ class Jig
   # This method is useful when the number of gaps is small compared to
   # the number of pairs.
   def fill!(pairs=nil)
+    insert = lambda {|match, fill, list|
+        case fill.rawgaps.size
+        when 0
+          contents[match,2] = [[contents[match], fill.contents.first, contents[match+1]]]
+        when 1
+          contents[match,2] = [[contents[match], fill.contents.first ], [fill.contents.last, contents[match+1]]]
+        when 2
+          contents[match,2] = [[contents[match], fill.contents.first ],fill.contents[1], [fill.contents.last, contents[match+1]]]
+        else
+          contents[match,2] = [[contents[match], fill.contents.first ]].concat(fill.contents[1..-2]).push([fill.contents.last, contents[match+1]])
+        end
+        list.concat(fill.rawgaps)
+    }
     self.rawgaps = rawgaps.inject([]) do |list, gap|
-      insert = lambda {|match, fill|
-          case fill.rawgaps.size
-          when 0
-            contents[match,2] = [[contents[match], fill.contents.first, contents[match+1]]]
-          when 1
-            contents[match,2] = [[contents[match], fill.contents.first ], [fill.contents.last, contents[match+1]]]
-          when 2
-            contents[match,2] = [[contents[match], fill.contents.first ],fill.contents[1], [fill.contents.last, contents[match+1]]]
-          else
-            contents[match,2] = [[contents[match], fill.contents.first ]].concat(fill.contents[1..-2]).push([fill.contents.last, contents[match+1]])
-          end
-          list.concat(fill.rawgaps)
-      }
-      items = block_given? ? yield(gap.name) :
-              pairs && pairs.fetch(gap.name, gap.name) || 
-              gap.name
+      items = if block_given? 
+        yield(gap.name)
+      elsif pairs
+        pairs.fetch(gap.name, gap.name)
+      else
+        gap.name
+      end
+      #warn "filling #{gap.name} with #{items.inspect}"
       next list << gap if items == gap.name
 
       match = list.size
@@ -641,18 +644,18 @@ class Jig
       when NilClass
         contents[match,2] = [[contents[match],contents[match+1]]]
       when Jig
-        insert[match,fill]
+        insert[match,fill,list]
       when Symbol
         list.push Gap.new(fill)
       when Gap
         list.push fill
       else
         if fill.respond_to?(:to_jig)
-          insert[match, fill.to_jig]
+          insert[match, fill.to_jig,list]
         elsif fill.respond_to?(:fetch)
-          insert[match, Jig[*fill]]
+          insert[match, Jig[*fill],list]
         elsif fill.respond_to?(:call)
-          insert[match, Jig[*fill]]
+          insert[match, Jig[*fill],list]
         else
           contents[match,2] = [[contents[match],fill,contents[match+1]]]
         end
@@ -662,26 +665,35 @@ class Jig
     self
   end
 
-  def _plugn!(index, *items)
-    fill = rawgaps.fetch(index).fill(*items)
-    fill = fill.to_jig if fill.respond_to? :to_jig
-    if Jig === fill
-      case fill.rawgaps.size
-      when 0
-        contents[index,2] = [[contents[index], fill.contents.first, contents[index+1]]]
-      when 1
-        contents[index,2] = [[contents[index], fill.contents.first ], [fill.contents.last, contents[index+1]]]
+  def filln!(pairs=[])
+    adjust = 0
+    if block_given?
+      pairs = (0...rawgaps.size).inject({}) {|m, index|  m.merge index => yield(index) }
+    end
+    pairs.sort_by {|index, items| index }.each do |index, items|
+      fill = rawgaps.fetch(index+adjust).fill(*items)
+      if fill.respond_to?(:to_jig)
+        fill = fill.to_jig
+        case fill.rawgaps.size
+        when 0
+          contents[index+adjust,2] = [[contents[index+adjust], fill.contents.first, contents[index++adjust1]]]
+        when 1
+          contents[index+adjust,2] = [[contents[index+adjust], fill.contents.first ], [fill.contents.last, contents[index+adjust+1]]]
+        else
+          contents[index+adjust,2] = [[contents[index+adjust], fill.contents.first ], fill.contents[1..-2], [fill.contents.last, contents[index+adjust+1]]]
+        end
+        rawgaps[index+adjust,1] = fill.rawgaps
+        adjust += fill.rawgaps.size - 1
+      elsif Symbol === fill
+        rawgaps[index+adjust, 1] = Gap.new(fill)
+        adjust -= 1
+      elsif Gap === fill
+        rawgaps[index+adjust, 1] = fill
       else
-        contents[index,2] = [[contents[index], fill.contents.first ], fill.contents[1..-2], [fill.contents.last, contents[index+1]]]
+        contents[index+adjust, 2] = [contents[index+adjust,2].insert(1, fill)]
+        rawgaps[index+adjust, 1] = nil
+        adjust -= 1
       end
-      gaps[index,1] = fill.rawgaps
-    elsif Symbol === fill
-      gaps[index, 1] = Gap.new(fill)
-    elsif Gap === fill
-      gaps[index, 1] = fill
-    else
-      contents[index, 2] = [contents[index,2].insert(1, fill)]
-      gaps[index, 1] = nil
     end
     self
   end
@@ -698,8 +710,6 @@ class Jig
     self
   end
   protected :push_jig
-
-  #Null = null.freeze
 
   class <<self
     GapStart = '(a:|:|\{)'
@@ -774,28 +784,6 @@ class Jig
     # Read the contents of filename into a string and parse it as Jig.
     def parse_file(filename, *context)
       parse(File.read(filename), *context)
-    end
-
-    # Incorporate methods and class methods specific to _feature_.
-    def xenable(*features)
-      features.map do |f|
-        begin
-          begin
-            extend Jig.const_get(f)::ClassMethods
-          rescue NameError
-          end
-          include Jig::const_get(f)
-          f
-        rescue
-          nil
-        end
-      end
-    end
-
-    def xderive(*features)
-      Class.new(self) {
-        enable(*features)
-      }
     end
   end
 

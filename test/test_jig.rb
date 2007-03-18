@@ -627,6 +627,16 @@ class Xjig
       j2 = j.plug { |g| g.to_s }
       assert_equal("alphabeta", j2.to_s)
     end
+
+    def test_plugn
+      j = Jig.new(:a, :b)
+      assert_equal("a", j.plugn(0, "a").to_s)
+      assert_equal("a", j.plugn("a").to_s)
+    end
+
+    def test_plug_nil
+      assert_equal("", Jig.new.plug(:___ => nil).to_s)
+    end
 	end
 
 end
