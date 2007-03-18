@@ -384,14 +384,14 @@ class Jig
           send(p, i)
         elsif i.respond_to? :to_jig
           push_jig i.to_jig
+        elsif i.respond_to? :call
+          (class <<i; self; end).class_eval {
+            undef inspect
+            alias inspect :to_s
+            alias to_s :call
+          }
+          contents.last << i
         else
-          if i.respond_to? :call
-            (class <<i; self; end).class_eval {
-              undef inspect
-              alias inspect :to_s
-              def to_s; call.to_s; end
-            }
-          end
           contents.last << i
         end
       end
@@ -409,7 +409,6 @@ class Jig
   #   j.concat Jig[4,:alpha,5]
   #   j == Jig[1,2,3,4,:alpha,5]     # true
   #
-  # If you don't want to modify the current jig, use Jig#+ instead.
   def concat(collection)
     push(*collection)
   end
