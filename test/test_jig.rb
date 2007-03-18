@@ -568,10 +568,6 @@ class Xjig
 			assert_equal("yx", j2.after(:alpha, 'x').plug(:alpha, 'y').to_s)
 		end
 
-		def test_wedge
-			assert_equal("1X2X3", (Xjig.new('X').wedge([1,2,3])).to_s)
-		end
-
 		def test_element_with_id
 			j = Xjig.element_with_id(:a, :href => "foo")
       id, href = %Q{id="#{j.eid}"}, 'href="foo"'
@@ -599,5 +595,32 @@ class Xjig
       assert_equal([:title, :head, :foo], c.gaps)
       assert_equal(4, c.contents.size)
     end
+
+    def test_slice_position
+      j = Jig.new(0, :alpha, 'z')
+      assert_equal(Jig[0], j.slice(0))
+      assert_equal(Jig[:alpha], j.slice(1))
+      assert_equal(Jig['z'], j.slice(2))
+    end
+
+    def test_slice_range
+      j = Jig.new(0, :alpha, 'z')
+      assert_equal(Jig[0, :alpha],      j.slice(0..1))
+      assert_equal(Jig[:alpha, 'z'],    j.slice(1..2))
+    end
+    def test_slice_start_length
+      j = Jig.new(0, :alpha, 'z')
+      assert_equal(Jig[0],              j.slice(0,1))
+      assert_equal(Jig[0, :alpha],      j.slice(0,2))
+      assert_equal(Jig[:alpha, 'z'],    j.slice(1,2))
+      assert_equal(Jig[:alpha],         j.slice(1,1))
+    end
+    def test_slice_negative_index
+      j = Jig.new(0, :alpha, 'z')
+      assert_equal(Jig['z'],          j.slice(-1))
+      assert_equal(Jig[:alpha, 'z'],  j.slice(-2..-1))
+      assert_equal(Jig[:alpha],       j.slice(-2, 1))
+    end
 	end
+
 end

@@ -149,23 +149,24 @@ class Jig
     "#<Jig: #{contents.zip(info).flatten[0..-2].inspect}>"
   end
 
-  # Returns _true_ if the jig has no remaining gaps to be filled.
-  #   Jig.new.full?            # false
-  #   Jig.new('a').full?       # true
-  #   Jig.new.plug('a').full?  # true
+  # Returns true if the jig has no gaps.
+  #   Jig.new.closed?            # false
+  #   Jig.new('a').closed?       # true
+  #   Jig.new.plug('a').closed?  # true
   def closed?
     rawgaps.empty?
   end
 
-  # Returns _true_ if the jig has any remaining gaps to be filled.
-  #   Jig.new.full?            # true
-  #   Jig.new('a').full?       # false
-  #   Jig.new.plug('a').full?  # false
+  # Returns true if the jig has any gaps.
+  #   Jig.new.open?            # true
+  #   Jig.new('a').open?       # false
+  #   Jig.new.plug('a').open?  # false
   def open?
     not rawgaps.empty?
   end
 
-  # Returns _true_ if the jig has no gaps and corresponds to the empty string.
+  # Returns true if the jig has no gaps and renders as the empty string.
+  # This method will cause proc objects within the jig to be evaluated.
   #   Jig.new.empty?           # false
   #   Jig.new(nil).empty?      # true
   #   Jig.new.plug("").empty?  # true
@@ -176,7 +177,7 @@ class Jig
   # Returns an array containing the names, in order, of the gaps in
   # the current jig.  A name may occur more than once in the list.
   def gaps
-    rawgaps.collect { |g| g.name }
+    rawgaps.map { |g| g.name }
   end
 
   # Returns _true_ if the named gap appears in the jig.
@@ -185,63 +186,76 @@ class Jig
   end
 
   # Returns the position of the named gap or nil if the gap
-  # is not found.
+  # is not found.  See slice for a description of indexing
+  # scheme for jigs.
   def index(name)
     rawgaps.each_with_index {|g,i| return (i*2)+1 if g.name == name }
     nil
   end
 
+
   # call-seq:
-  #   slice(n)  -> jig
-  #   slice(s..e)  -> jig
-  #   slice(name) -> gap
+  #   slice(position)   -> jig
+  #   slice(range)      -> jig
+  #   slice(start, len) -> jig
   #
-  # Extracts parts of a jig.  If an integer index is provided the
-  # contents preceeding the nth gap is returned as a jig.
-  # If called with a range index, the contents selected by the
-  # range is returned as well as any gaps within that range.
-  # If a non-numeric index is provided, the gap with the matching
-  # name is returned. Returns nil if the numeric index is out of range or the
-  # named gap is not found.
+  # Extracts parts of a jig.  The indexing scheme for jigs is
+  # accounts for contents and gaps as follows:
   #
-  #   j = Jig.new('0', :alpha, '1', :beta, '2')
-  #   j.slice(:alpha)         # #<Gap: :alpha >
-  #   j.slice(0)              # Jig['0']
-  #   j.slice(0..1)           # Jig['0', :alpha, '1']
-  def slice(index)
-    if Integer === index
-      if (index % 2).zero?
-        Jig[contents[index/2]]
-      else
-        rawgaps[(index-1)/2]
-      end
-    elsif Range === index
-      j = Jig.new
-      altindex = lambda { |x| (contents.size-1)*2 + x + 1 }
-      b = (index.begin >= 0) && index.begin || altindex[index.begin]
-      e = (index.end >= 0) && index.end || altindex[index.end]
-      index = b..e
-      case [index.begin % 2, index.end % 2]
-      when [0,0]
-        j.rawgaps = rawgaps[(index.begin/2)...(index.end/2)]
-        j.contents = contents[(index.begin/2)..(index.end/2)]
-      when [0,1]
-        j.rawgaps = rawgaps[(index.begin/2)...((index.end+1)/2)]
-        j.contents = contents[(index.begin/2)..((index.end-1)/2)].push([])
-      when [1,0]
-        j.rawgaps = rawgaps[((index.begin-1)/2)...((index.end)/2)]
-        j.contents = contents[(index.begin+1/2)..((index.end)/2)].unshift([])
-      when [1,1]
-        j.rawgaps = rawgaps[((index.begin-1)/2)...((index.end+1)/2)]
-        j.contents = contents[((index.begin+1)/2)..((index.end-1)/2)].push([]).unshift([])
-      end
-      if !j.contents or !j.rawgaps
-        raise ArgumentError, "index #{index} out of range"
-      end
-      j
+  #        1    3       <- gaps
+  #   +----+----+----+
+  #   |    |    |    |
+  #   +----+----+----+
+  #     0    2    4     <- contents
+  #
+  # Each indexible element of the contents is itself a list
+  # of zero or more objects. A jig with n gaps will always have
+  # n + 1 content lists.
+  #
+  # When called with a single integer (pos), slice returns the
+  # indexed item (a gap or a content list) as a jig.
+  #
+  #   j = Jig.new(0, :alpha, 'z')
+  #   j.slice(0)                   # => #<Jig: [0]>
+  #   j.slice(1)                   # => #<Jig: [:alpha]>
+  #   j.slice(2)                   # => #<Jig: ['z']>
+  #
+  # When called with a range or a start position and length, 
+  # slice extracts the indexed items and returns them as a new jig.
+  #
+  #   j = Jig.new(0, :alpha, 'z')
+  #   j.slice(0..1)                # => #<Jig: [0, :alpha]>
+  #   j.slice(1..2)                # => #<Jig: [:alpha, 'z']>
+  #   j.slice(0,1)                 # => #<Jig: [0]>
+  #   j.slice(0,2)                 # => #<Jig: [0, :alpha]>
+  #
+  # Negative array indices are respected:
+  #
+  #   j = Jig.new(0, :alpha, 'z')
+  #   j.slice(-1)                  # => #<Jig: ['z']>
+  #   j.slice(-2..-1)              # => #<Jig: [:alpha, 'z']>
+  #   j.slice(-2, 1)               # => #<Jig: [:alpha]>
+  def slice(index, len=1)
+    if Range === index
+      first, last = index.begin, index.end unless index.exclude_end?
+      first, last = index.begin, index.end - 1 if index.exclude_end?
     else
-      has_gap?(index)
+      first, last = index, index + len - 1
     end
+    normalize = lambda { |s, x| (s-1)*2 + x + 1 } # :nodoc:
+    first = normalize[contents.size, first] if first < 0
+    last = normalize[contents.size, last] if last < 0
+    first_adjust, last_adjust = first % 2, last % 2
+    #warn "using: #{[first, first_adjust, last, last_adjust].inspect}"
+    j = Jig.new
+    j.rawgaps = rawgaps[((first - first_adjust)/2)...((last + last_adjust)/2)]
+    j.contents = contents[((first + first_adjust)/2)..((last - last_adjust)/2)]
+    j.contents.unshift([]) if first_adjust.nonzero?
+    j.contents.push([]) if last_adjust.nonzero?
+    if !j.contents or !j.rawgaps
+      raise ArgumentError, "index #{index} out of range"
+    end
+    j
   end
 
   # call-seq:
@@ -273,11 +287,13 @@ class Jig
   # Construct a jig from the list of _items_.  Symbols in the list are
   # replaced with a gap named by the symbol.
   #
-  #   item = Jig.new(:quantity, "@", :price, "=", :amount)
-  #   time = Jig.new(:hours, ":", :minutes, ":",  :seconds)
+  #   j1 = Jig.new('first', :middle, 'last')      # => #<Jig: ['first', :middle, 'last']
+  #   j1.gaps                                     # [:middle]
   #
-  # If a block is provided, it is appended as a proc to the list of items. Procs within
-  # a jig are not evaluated until the jig is converted to a string by Jig#to_s.
+  # If a block is provided, it is appended as a proc to the list of items. 
+  # Procs within a jig are not evaluated until the jig is rendered as a
+  # string by to_s.
+  #
   #   i = 0
   #   j = Jig.new("i = ") { i }
   #   puts j     # i = 0
@@ -287,7 +303,7 @@ class Jig
   # If no arguments are given and no block is given, the jig is constructed
   # with a single default gap named :___ (also known as Jig::GAP).
   #   one_gap = Jig.new
-  #   p one_gap.gaps   # [:___]
+  #   one_gap.gaps           # [:___]
   def initialize(*items, &block)
     @contents = [[]]
     @rawgaps = []
@@ -306,20 +322,20 @@ class Jig
     self
   end
 
-  # Returns _true_ if the two jigs have equal gap lists and contents.
+  # Returns true if the two jigs have equal gap lists and contents.
   # Jigs that are not equal may still have the same string representation.
   # Procs are not evaluated by _==_.
-  #   a = Jig.new(:alpha, :beta)
-  #   b = Jig.new(:alpha, :beta)
+  #   a = Jig.new(:alpha, 1, :beta)
+  #   b = Jig.new(:alpha, 1, :beta)
   #   a.equal?(b)            # false
   #   a == b                 # true
-  #   a.plug(:alpha, 1) == b.plug(:beta, 1)              # false
-  #   a.plug(:alpha, 1).to_s == b.plug(:beta, 1).to_s    # true
   #
+  #   c = Jig.new(1, :alpha, :beta)
+  #   a == c                 # false
+  #   a.to_s == c.to_s       # true
   def ==(other)
     self.class == other.class &&
-    (rawgaps == other.rawgaps) && 
-    (contents.flatten == other.contents.flatten)
+    contents.zip(rawgaps).flatten == other.contents.zip(other.rawgaps).flatten
   end
 
   # Returns true if the string representation of the jig equals 
@@ -331,14 +347,6 @@ class Jig
   # Return self.
   def to_jig
     self
-  end
-
-  # Create a new jig formed by inserting a copy of the current jig between each
-  # element of the array.  The elements of the array are treated like plug arguments.
-  # Example : (Jig.new('X') | [1,2,3]).to_s   # =>  "1X2X3"
-  # XXX
-  def wedge(array)
-    Jig[array.zip((1..(array.size - 1)).to_a.map { self.dup })]
   end
 
   def initialize_copy(other)
