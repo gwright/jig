@@ -242,11 +242,9 @@ class Jig
     else
       first, last = index, index + len - 1
     end
-    normalize = lambda { |s, x| (s-1)*2 + x + 1 } # :nodoc:
-    first = normalize[contents.size, first] if first < 0
-    last = normalize[contents.size, last] if last < 0
+    first = 2*contents.size + first - 1 if first < 0
+    last = 2*contents.size + last - 1 if last < 0
     first_adjust, last_adjust = first % 2, last % 2
-    #warn "using: #{[first, first_adjust, last, last_adjust].inspect}"
     j = Jig.new
     j.rawgaps = rawgaps[((first - first_adjust)/2)...((last + last_adjust)/2)]
     j.contents = contents[((first + first_adjust)/2)..((last - last_adjust)/2)]
@@ -614,20 +612,9 @@ class Jig
   # If there is no match in _pairs_ for a gap, it remains unplugged.
   # This method is useful when the number of gaps is small compared to
   # the number of pairs.
+  #
+
   def fill!(pairs=nil)
-    insert = lambda {|match, fill, list|
-        case fill.rawgaps.size
-        when 0
-          contents[match,2] = [[contents[match], fill.contents.first, contents[match+1]]]
-        when 1
-          contents[match,2] = [[contents[match], fill.contents.first ], [fill.contents.last, contents[match+1]]]
-        when 2
-          contents[match,2] = [[contents[match], fill.contents.first ],fill.contents[1], [fill.contents.last, contents[match+1]]]
-        else
-          contents[match,2] = [[contents[match], fill.contents.first ]].concat(fill.contents[1..-2]).push([fill.contents.last, contents[match+1]])
-        end
-        list.concat(fill.rawgaps)
-    }
     self.rawgaps = rawgaps.inject([]) do |list, gap|
       items = if block_given? 
         yield(gap.name)
@@ -636,30 +623,37 @@ class Jig
       else
         gap.name
       end
-      #warn "filling #{gap.name} with #{items.inspect}"
       next list << gap if items == gap.name
 
       match = list.size
-      case (fill = *gap.fill(items))
+      case (fill = gap.fill(items))
       when NilClass
-        contents[match,2] = [[contents[match],contents[match+1]]]
+        filling, gaps = [[]], nil
       when Jig
-        insert[match,fill,list]
+        filling, gaps = fill.contents, fill.rawgaps
       when Symbol
-        list.push Gap.new(fill)
+        filling, gaps = nil, gaps = Gap.new(fill)
       when Gap
-        list.push fill
+        filling, gaps = nil, gaps = fill
       else
-        if fill.respond_to?(:to_jig)
-          insert[match, fill.to_jig,list]
-        elsif fill.respond_to?(:fetch)
-          insert[match, Jig[*fill],list]
-        elsif fill.respond_to?(:call)
-          insert[match, Jig[*fill],list]
+        if fill.respond_to?(:fetch)
+          fill = fill.empty? && Jig.null || Jig[*fill]
+          filling, gaps = fill.contents, fill.rawgaps
+        elsif fill.respond_to?(:to_jig) || fill.respond_to?(:call)
+          fill = Jig[*fill]
+          filling, gaps = fill.contents, fill.rawgaps
         else
-          contents[match,2] = [[contents[match],fill,contents[match+1]]]
+          filling, gaps = [fill], nil
         end
       end
+      if filling
+        if filling.size == 1
+          contents[match,2] = [[contents[match], filling.first, contents[match+1]]]
+        else
+          contents[match,2] = [[contents[match], filling.first ]] + filling[1..-2] + [[filling.last, contents[match+1]]]
+        end
+      end
+      list.push(*gaps) if gaps
       list
     end
     self
