@@ -413,25 +413,6 @@ class Jig
     push(*collection)
   end
 
-  # Duplicates the current jig and calls map!.
-  def map(&b)
-    dup.map!(&b)
-  end
-
-  # Iterates through all the gaps passing the name of each gap
-  # to the block. The value yielded by the block is used 
-  # to plug the gap.
-  #   j = Jig.new(:alpha, :beta).map do |g|
-  #     g == :alpha && 'a' || g
-  #   end
-  #   j == Jig.new('a', :beta)          # true
-  #
-  # All the gaps are conceptually plugged at the same time. See
-  # plug! for more details.
-  def map!(&b)
-    plug_all!(gaps_set.inject({}) { |h, g| h[g.name] = yield(g.name); h })
-  end
-
   # call-seq:
   #   plug!(symbol)              -> a_jig
   #   plug!(symbol, item, *more) -> a_jig
@@ -444,14 +425,14 @@ class Jig
   # modified.  To construct a new jig use #plug instead.
   # If the named plug is not defined, the jig is not changed.
   def plug!(*args, &block)
-    return fill!(&block) if block
-    first = args.first
-    return fill!(first) if first.respond_to?(:has_key?)
-
-    if Symbol === first
-      return fill!(first => (x = *args[1..-1]))
+    if block
+      fill!(&block)
+    elsif (first = args.first).respond_to?(:has_key?)
+      fill!(first) 
+    elsif Symbol === first
+      fill!(first => (x = *args[1..-1]))
     else
-      return fill!(GAP => (x = *args))
+      fill!(GAP => (x = *args))
     end
   end
   alias []= :plug!
@@ -544,39 +525,42 @@ class Jig
     dup.plugn!(*args, &block)
   end
 
-  #alias merge  :plug
-  #alias merge! :plug!
-
   # Returns a new jig constructed by inserting the item *before* the specified gap.
   # The gap itself remains in the new jig.
-  def before(first, *items)
-    gap = GAP
-    case first
-    when Symbol
-      if !items.empty?
-        gap = first
-      else
-        items.unshift first
-      end
+  def before(*args)
+    if Symbol === args.first
+      gap = args.shift
     else
-      items.unshift first
+      gap = GAP
     end
-    items.push(rawgaps.find {|x| x.name == gap})
-    plug(gap, *items)
+    if current = rawgaps.find {|x| x.name == gap}
+      args.push current
+      plug(gap, *args)
+    else
+      self
+    end
   end
 
   # A new jig is constructed by inserting the item *after* the specified gap.
   # The gap itself remains in the new jig.
-  def after(gap, item=nil)
-    gap,item = GAP, gap unless item
-    plug(gap, Jig.new(gap, item))
+  def after(*args)
+    if Symbol === args.first
+      gap = args.shift
+    else
+      gap = GAP
+    end
+    if current = rawgaps.find {|x| x.name == gap}
+      plug(gap, current, *args)
+    else
+      self
+    end
   end
 
   alias << :plug!
 
   # Duplicate the current jig and then fill any gaps as with _fill!_
-  def fill(hash)
-    dup.fill!(hash)
+  def fill(hash=nil, &b)
+    dup.fill!(hash, &b)
   end
 
 

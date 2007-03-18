@@ -621,6 +621,12 @@ class Xjig
       assert_equal(Jig[:alpha, 'z'],  j.slice(-2..-1))
       assert_equal(Jig[:alpha],       j.slice(-2, 1))
     end
+
+    def test_fill
+      j = Jig.new(:alpha, :beta)
+      j2 = j.plug { |g| g.to_s }
+      assert_equal("alphabeta", j2.to_s)
+    end
 	end
 
 end
