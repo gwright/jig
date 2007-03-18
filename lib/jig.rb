@@ -431,6 +431,8 @@ class Jig
       fill!(first) 
     elsif Symbol === first
       fill!(first => (x = *args[1..-1]))
+    elsif args.empty?
+      fill! { nil }
     else
       fill!(GAP => (x = *args))
     end
@@ -558,25 +560,13 @@ class Jig
 
   alias << :plug!
 
-  # Duplicate the current jig and then fill any gaps as with _fill!_
-  def fill(hash=nil, &b)
-    dup.fill!(hash, &b)
+  def close
+    plug
   end
 
-
-  # Duplicate the current jig and then fill any gaps specified by pairs via
-  # _plug_all!_.
-  def plug_all(pairs={})
-    dup.plug_all!(pairs)
+  def close!
+    plug!
   end
-
-  # Fill all remaining gaps with plugs from pairs. It is assumed that pairs
-  # will always return a value for any key, perhaps nil.
-  def plug_all!(pairs={})
-    gaps.uniq.inject(self) {|jig,gap| jig.plug!(gap, pairs[gap]) }
-  end
-
-  alias close :plug_all!
 
   # A string is constructed by concatenating the contents of the jig.
   # Gaps are effectively considered null strings.  Any procs in the jig
@@ -641,21 +631,15 @@ class Jig
           end
           list.concat(fill.rawgaps)
       }
-      items = if block_given?
-        yield(gap.name) 
-      else
-        pairs.fetch(gap.name, gap.name)
-      end
-      if items == gap.name
-        next list << gap 
-      end
+      items = block_given? ? yield(gap.name) :
+              pairs && pairs.fetch(gap.name, gap.name) || 
+              gap.name
+      next list << gap if items == gap.name
+
       match = list.size
-      fill = *gap.fill(items)
-      if !fill
+      case (fill = *gap.fill(items))
+      when NilClass
         contents[match,2] = [[contents[match],contents[match+1]]]
-        next list
-      end
-      case fill
       when Jig
         insert[match,fill]
       when Symbol
@@ -671,7 +655,6 @@ class Jig
           insert[match, Jig[*fill]]
         else
           contents[match,2] = [[contents[match],fill,contents[match+1]]]
-          list
         end
       end
       list

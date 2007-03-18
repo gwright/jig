@@ -52,7 +52,8 @@ class CSS
 
     def test_open?
       assert(CSS.div.open?, 'gaps remain')
-      assert(!CSS.div.plug_all.open?, 'no gaps')
+      assert(CSS.div.plug.closed?, 'no gaps')
+      assert(!CSS.div.plug.open?, 'no gaps')
     end
 
     def test_method_missing
