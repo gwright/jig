@@ -1,19 +1,9 @@
 
 require 'jig'
 require 'test/unit'
+require 'test/jig'
 
 CSS = Jig::CSS
-
-module Asserts
-  def assert_as_string(expected, jig, message='')
-    case expected
-    when String
-      assert_equal(expected, jig.to_s, message)
-    when Regexp
-      assert_match(expected, jig.to_s, message)
-    end
-  end
-end
 
 class CSS
 	class TestCSS < Test::Unit::TestCase

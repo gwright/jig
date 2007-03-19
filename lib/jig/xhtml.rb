@@ -55,6 +55,15 @@ class Jig
         jig.plug!(:id, jig.eid)
       end
 
+      def method_missing(sym, *args, &block)
+        text = sym.to_s
+        if text.to_s =~ /_with_id!*$/
+          element_with_id(text.sub(/_with_id!*$/,'').to_sym, *args, &block)
+        else
+          super
+        end
+      end
+
       DOCTYPES = {
         :strict, %{"-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"},
         :transitional, %{"-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"},

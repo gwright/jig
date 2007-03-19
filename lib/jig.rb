@@ -632,9 +632,9 @@ class Jig
       when Jig
         filling, gaps = fill.contents, fill.rawgaps
       when Symbol
-        filling, gaps = nil, gaps = Gap.new(fill)
+        filling, gaps = nil, Gap.new(fill)
       when Gap
-        filling, gaps = nil, gaps = fill
+        filling, gaps = nil, fill
       else
         if fill.respond_to?(:fetch)
           fill = fill.empty? && Jig.null || Jig[*fill]
@@ -647,10 +647,11 @@ class Jig
         end
       end
       if filling
+        n = filling.size
         if filling.size == 1
-          contents[match,2] = [[contents[match], filling.first, contents[match+1]]]
+          contents[match,2] = [contents[match] + filling[0,1] + contents[match+1] ]
         else
-          contents[match,2] = [[contents[match], filling.first ]] + filling[1..-2] + [[filling.last, contents[match+1]]]
+          contents[match,2] = [contents[match] + filling[0,1]] + filling[1..-2] + [filling[-1,1] + contents[match+1]]
         end
       end
       list.push(*gaps) if gaps

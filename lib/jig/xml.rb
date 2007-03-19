@@ -111,26 +111,22 @@ class Jig
       def method_missing(symbol, *args, &block)
         constructor = :element
         text = symbol.to_s
-        if text =~ /_with_id!*$/
-          element_with_id(text.sub(/_with_id!*$/,'').to_sym, *args, &block)
-        else
-          if text =~ /!\z/
-            text.chop!
-            constructor = :element!
-          elsif text =~ /\?\z/
-            text.chop!
-            constructor = :anonymous
-          end
-          if text =~ /_$/		# alternate for clashes with existing methods
-            text.chop!
-          end
-          if text =~ /_/
-            # Single _ gets converted to : for XML name spaces
-            # Double _ gets converted to single _
-            text = text.gsub(/([^_])_([^_])/){|x| "#{$1}:#{$2}"}.gsub(/__/, '_')
-          end
-          send(constructor, text, *args, &block)
+        if text =~ /!\z/
+          text.chop!
+          constructor = :element!
+        elsif text =~ /\?\z/
+          text.chop!
+          constructor = :anonymous
         end
+        if text =~ /_$/		# alternate for clashes with existing methods
+          text.chop!
+        end
+        if text =~ /_/
+          # Single _ gets converted to : for XML name spaces
+          # Double _ gets converted to single _
+          text = text.gsub(/([^_])_([^_])/){|x| "#{$1}:#{$2}"}.gsub(/__/, '_')
+        end
+        send(constructor, text, *args, &block)
       end
 
       # Construct a jig for an HTML element with _tag_ as the tag.
