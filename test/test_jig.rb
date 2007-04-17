@@ -152,6 +152,12 @@ class TestJig < Test::Unit::TestCase
     assert_equal(4, c.contents.size)
   end
 
+	def test_plug_single_gap
+    c = Jig.new.plug(:alpha)
+    assert_equal([:alpha], c.gaps)
+    assert_equal(2, c.contents.size)
+	end
+
   def test_slice_position
     j = Jig.new(0, :alpha, 'z')
     assert_equal(Jig[0], j.slice(0))
@@ -482,7 +488,6 @@ class MultipleGaps < Test::Unit::TestCase
     assert_equal("yx", j2.after(:alpha, 'x').plug(:alpha, 'y').to_s)
   end
 
-
   def test_plug_from_hash
     j = Jig.new(:alpha, :beta)
     h = {:alpha => 'a', :beta => 'b' }
@@ -492,4 +497,10 @@ class MultipleGaps < Test::Unit::TestCase
     assert_equal("b", result2.to_s)
     assert_equal([:beta], result2.gaps)
   end
+
+	def test_distribute_to_gaps
+		j = Jig.new * [:alpha, :beta]
+		assert_equal [:alpha, :beta], j.gaps
+		assert_equal "ab", j.plug(:alpha => 'a', :beta => 'b').to_s
+	end
 end

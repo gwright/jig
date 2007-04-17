@@ -384,9 +384,8 @@ class Jig
           push_jig i.to_jig
         elsif i.respond_to? :call
           (class <<i; self; end).class_eval {
-            undef inspect
-            alias inspect :to_s
-            alias to_s :call
+						undef to_s
+            def to_s; call.to_s; end
           }
           contents.last << i
         else
@@ -428,7 +427,11 @@ class Jig
     elsif (first = args.first).respond_to?(:has_key?)
       fill!(first) 
     elsif Symbol === first
-      fill!(first => (x = *args[1..-1]))
+			if args.size == 1
+      	fill!(GAP => (x = *args))
+			else
+      	fill!(first => (x = *args[1..-1]))
+			end
     elsif args.empty?
       fill! { nil }
     else
@@ -569,7 +572,7 @@ class Jig
   # are evaluated, the results converted to a string via to_s.  All
   # other objects are converted to strings via to_s.
   def to_s
-    contents.join
+    contents.flatten.join
   end
 
   def split(*args)
