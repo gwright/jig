@@ -133,7 +133,6 @@ class Jig
         container(:div, css_class, *args, &block)
       end
 
-
 			# Generate a link element for a favicon. Extra attributes
 			# may be specified via the optional argument, _extra_.
 			#
@@ -175,6 +174,10 @@ class Jig
           args = ["\n", cdata(*args.push("\n")), attrs]
         end
         element(:style, *args)
+      end
+
+      def style_link(src)
+        link!('rel' => 'stylesheet', 'type' => 'text/css', 'href' => src)
       end
 
 			# Generate a script element.  XXX

@@ -58,6 +58,10 @@ class TestJig < Test::Unit::TestCase
     assert_equal("argblock", J.new("arg") { "block" }.to_s, 'args and lambda as block to new')
     assert_equal("arg1arg2block", J.new("arg1", "arg2") { "block" }.to_s, 'args and lambda as block to new')
 
+    # creation with lambdas that don't return strings
+    assert_equal("42", J.new( lambda { 42 } ).to_s)
+    assert_equal("42", (J.new { 42 }).to_s)
+
     # creation with arrays
     assert_equal(%Q{abc}, J.new(["a", "b", "c"]).to_s)
     assert_equal(%Q{abc}, J.new("a", ["b"], "c").to_s)
@@ -150,6 +154,10 @@ class TestJig < Test::Unit::TestCase
     c = Jig.new.plug(:___, :title, :head, :foo)
     assert_equal([:title, :head, :foo], c.gaps)
     assert_equal(4, c.contents.size)
+  end
+
+  def test_plug_default_with_gap
+    assert_equal([:alpha], Jig.new.plug(:alpha).gaps)
   end
 
 	def test_plug_single_gap

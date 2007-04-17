@@ -619,17 +619,21 @@ class Jig
 
   def fill!(pairs=nil)
     self.rawgaps = rawgaps.inject([]) do |list, gap|
+      gname = gap.name
       items = if block_given? 
-        yield(gap.name)
+        yield(gname)
       elsif pairs
-        pairs.fetch(gap.name, gap.name)
+        pairs.fetch(gname, gname)
       else
-        gap.name
+        gname
       end
-      next list << gap if items == gap.name
+
+      if items == gname
+        next list << gap 
+      end
 
       match = list.size
-      case (fill = gap.fill(items))
+      case fill = gap.fill(items)
       when NilClass
         filling, gaps = [[]], nil
       when Jig
@@ -646,21 +650,30 @@ class Jig
           fill = Jig[*fill]
           filling, gaps = fill.contents, fill.rawgaps
         else
-          filling, gaps = [fill], nil
+          filling, gaps = [[fill]], nil
         end
       end
       if filling
-        n = filling.size
         if filling.size == 1
-          contents[match,2] = [contents[match] + filling[0,1] + contents[match+1] ]
+          contents[match,2] = [contents[match] + filling[0] + contents[match+1] ]
         else
-          contents[match,2] = [contents[match] + filling[0,1]] + filling[1..-2] + [filling[-1,1] + contents[match+1]]
+          contents[match,2] = [contents[match] + filling[0]] + filling[1..-2] + [filling[-1] + contents[match+1]]
         end
       end
       list.push(*gaps) if gaps
       list
     end
     self
+  end
+
+  def fill_at!(*gaps)
+    fill! { |gname|
+      gaps.include?(gname) && yield(gname) || gname
+    }
+  end
+
+  def fill_at(*gaps, &block)
+    dup.fill_at!(*gaps, &block)
   end
 
   def filln!(pairs=[])
@@ -672,13 +685,10 @@ class Jig
       fill = rawgaps.fetch(index+adjust).fill(*items)
       if fill.respond_to?(:to_jig)
         fill = fill.to_jig
-        case fill.rawgaps.size
-        when 0
-          contents[index+adjust,2] = [[contents[index+adjust], fill.contents.first, contents[index++adjust1]]]
-        when 1
-          contents[index+adjust,2] = [[contents[index+adjust], fill.contents.first ], [fill.contents.last, contents[index+adjust+1]]]
+        if fill.rawgaps.empty?
+          contents[index+adjust,2] = [[contents[index+adjust] + fill.contents[0] + contents[index+adjust1]]]
         else
-          contents[index+adjust,2] = [[contents[index+adjust], fill.contents.first ], fill.contents[1..-2], [fill.contents.last, contents[index+adjust+1]]]
+          contents[index+adjust,2] = [[contents[index+adjust], fill.contents[0] ], fill.contents[1..-2], [fill.contents[-1], contents[index+adjust+1]]]
         end
         rawgaps[index+adjust,1] = fill.rawgaps
         adjust += fill.rawgaps.size - 1
@@ -695,6 +705,7 @@ class Jig
     end
     self
   end
+
 
   def push_gap(gitem)
     @rawgaps << gitem
