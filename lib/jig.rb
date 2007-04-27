@@ -82,7 +82,7 @@ Attributes can be specified with a hash:
 
 =end
 class Jig
-  VERSION = '0.8.0'
+  VERSION = '0.1.0'
   autoload :XML, "jig/xml"
   autoload :XHTML, "jig/xhtml"
   autoload :CSS, "jig/css"
@@ -591,7 +591,6 @@ class Jig
     join.open(*args, &b)
   end
 
-  private 
 
   # This method is where the magic happens. The contents and gap arrays
   # are modified such that the named gap is removed and the items are 
@@ -706,12 +705,12 @@ class Jig
     self
   end
 
-
   def push_gap(gitem)
     @rawgaps << gitem
     @contents << []
     self
   end
+  protected :push_gap
 
   def push_jig(other)
     self.contents = contents[0..-2] + [contents[-1] + other.contents[0]] + other.contents[1..-1]
@@ -721,73 +720,57 @@ class Jig
   protected :push_jig
 
   class <<self
-    GapStart = '(a:|:|\{)'
-    GapEnd = '(:a|:|\})'
-    DelimStart = Regexp.new "(<#{GapStart})"
-    DelimEnd = "(#{GapEnd}>)"
 
-    # Convert a string into a jig. Code in the string is evaluated relative to _context_,
-    # which should be an instance of Binding.  If a block is provided, the block is evaluated
-    # and its result is parsed into a jig.  In this case, the block is used as the
-    # context for evaluating any embedded code.
+    # Convert a string into a jig. The string is scanned for blocks deliminated by %{...}.
+    # The blocks are interpreted as follows:
+    #   %{:identifier}          is converted into a gap named *identifier*
+    #   %{=attribute,gapname}   is converted into an attribute gap named *gapname*
+    #   %{code}                 is converted to a lambda
     #
-    # The method parses the string by looking for the following sequences:
-    #   <:identifier:>    is converted into a named gap
-    #   <:identifier,identifier:>  is converted to a key/value pair and becomes an attribute gap
-    #   <{code}>          is converted to a proc
-    def parse(string=nil, context=nil, &block)
-      if block
-        context = block
-        string = block.call
-      end
-      raw = StringScanner.new(string)
-      items = []
-      while !raw.eos?
-        if chunk = raw.scan_until(DelimStart)
-          items << chunk[0..-3] unless chunk[0..-3].empty?
-          start_delim = raw[1]
+    # Code blocks are interpreted when the resulting jig is rendered via Jig#to_s.
+    # Each time parse is called, an anonymous module is created to evaluate *all* the
+    # code blocks created during that call to parse. Alternatively, the code blocks can
+    # be evaluated against an explicit binding passed as the second argument.
+    #
+    # Jig.parse("abc").to_s     # abc
+    # Jig.parse("1 %{:x} 3")    # Jig[1, :x, 3]
+    # Jig.parse("1 %{:x} 3")    # Jig[1, :x, 3]
+    # Jig.parse("<input%{=type,itype} />").plug(:itype, 'password')   # <input type="password" />
+    #
+    # a = 5
+    # Jig.parse("%{a + 1}", binding).to_s    #  6
+    # Jig.parse("%{b + 1}").to_s             #  NameError
+    #
+    # class A
+    #   def to_jig
+    #     Jig.parse("secret: %{secret}", binding)
+    #   end
+    #   def secret
+    #      "xyzzy"
+    #   end
+    #   private :secret
+    # end
+    #
+    # A.new.secret          # NoMethodError
+    # A.new.to_jig.to_s     # secret: xyzzy
+    def parse(string=nil, context=nil)
+      wrapper = context || Module.new.class_eval { binding }
+      raw = string.scan(/(.*?)(%\{(.*?)\}|\z)/).inject([]) { |list, (before, quoted, stripped)|
+        list << before unless before.empty?
+        case stripped
+        when /\A:(.*)\z/
+          list << $1.to_sym
+        when /\A=(.*),(.*)/
+          list << Jig::XHTML.new({ $1 => $2.to_sym})
+        when /\A=/
+          raise ArgumentError, "invalid gap syntax: #{quoted}"
+        when nil
+          list
         else
-          items << raw.rest
-          break
+          list << eval("lambda {#{stripped}}", wrapper)
         end
-
-        case start_delim
-        when '<:'   # gap
-          unless raw.scan(Regexp.new("(#{GapPattern}),(#{GapPattern})(#{DelimEnd})"))
-            unless raw.scan(Regexp.new("((#{GapPattern})|)#{DelimEnd}"))
-              raise ArgumentError, "invalid gap found: #{raw.rest[0..10]}.."
-            end
-            if raw[1].empty?
-              items << GAP
-            else
-              items << raw[2].to_sym
-            end
-            unless (end_delim = raw[3]) == ':>'
-              raise ArgumentError, "mismatched delimiters: '#{start_delim}' and '#{end_delim}'"
-            end
-          else
-            if items[-1].respond_to?(:merge)
-              items[-1].merge! raw[1] => raw[2].to_sym
-            else
-              items << { raw[1] => raw[2].to_sym }
-            end
-            unless (end_delim = raw[3]) == ':>'
-              raise ArgumentError, "mismatched delimiters: '#{start_delim}' and '#{end_delim}'"
-            end
-          end
-        when '<{'   # code gap
-          unless raw.scan(Regexp.new("(.*)#{DelimEnd}"))
-            raise ArgumentError, "unterminated code gap found: #{raw.rest[0..10]}.."
-          end
-          code = raw[1]
-          unless (end_delim = raw[2]) == '}>'
-            raise ArgumentError, "mismatched delimiters: '#{start_delim}' and '#{end_delim}'"
-          end
-          items << eval( "lambda { #{code} }", context)
-        end
-      end
-      newjig = self[*items]
-      newjig
+      }
+      Jig.new(*raw)
     end
 
     # Read the contents of filename into a string and parse it as Jig.
@@ -796,7 +779,6 @@ class Jig
     end
   end
 
-  module Base
     # call-seq:
     #   jig + obj -> a_jig
     #
@@ -822,8 +804,6 @@ class Jig
     def ^(*args)
       multn(*args)
     end
-  end
-  include Base
 
   module Proxy
     def method_missing(*a, &b)
