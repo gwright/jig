@@ -779,31 +779,28 @@ class Jig
     end
   end
 
-    # call-seq:
-    #   jig + obj -> a_jig
-    #
-    # Duplicate the current jig then use concat to add _obj_.
-    #   j = Jig[1, :alpha]
-    #   j + 2                     # Jig[1, :alpha, 2]
-    #   j + :beta                 # Jig[1, :alpha, :beta]
-    #   j + Jig[:beta]            # Jig[1, :alpha, :beta]
-    #   j + [3,4]                 # Jig[1, :alpha, 3, 4]
-    #   j + [Jig.new, Jig.new]    # Jig[1, :alpha, :___, :___]
-    #   j + Jig[:beta] * 2        # Jig[1, :alpha, :beta, :beta]
-    def +(obj)
-      dup.concat(obj)
-    end
-    def [](*args)
-      slice(*args)
-    end
+  # call-seq:
+  #   jig + obj -> a_jig
+  #
+  # Duplicate the current jig then use concat to add _obj_.
+  #   j = Jig[1, :alpha]
+  #   j + 2                     # Jig[1, :alpha, 2]
+  #   j + :beta                 # Jig[1, :alpha, :beta]
+  #   j + Jig[:beta]            # Jig[1, :alpha, :beta]
+  #   j + [3,4]                 # Jig[1, :alpha, 3, 4]
+  #   j + [Jig.new, Jig.new]    # Jig[1, :alpha, :___, :___]
+  #   j + Jig[:beta] * 2        # Jig[1, :alpha, :beta, :beta]
+  def +(obj)
+    dup.concat(obj)
+  end
 
-    def *(*args)
-      mult(*args)
-    end
+  def append(obj)
+    dup.concat(obj)
+  end
 
-    def ^(*args)
-      multn(*args)
-    end
+  alias [] :slice
+  alias * :mult
+  alias % :plug
 
   module Proxy
     def method_missing(*a, &b)

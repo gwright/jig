@@ -12,8 +12,8 @@ class Jig
    j.to_s            # => <?xml version="1.0" ?>\n
 
    j = Jig::XML.comment("sample")  
-   j.inspect         # => #<Jig: ["<!-- ", "sample", " -->\n"]>
-   j.to_s            # => <!-- sample -->\n
+   j.inspect         # => #<Jig: ["\<!-- ", "sample", " -->\n"]>
+   j.to_s            # => \<!-- sample -->\n
 
    j = Jig::XML.book(Jig::XMLtitle('War and Peace'))
    j.inspect         # => #<Jig: ["<book", nil, ">", "<title", nil, ">\n", "War and Peace", "</title>\n", "</book>\n"]>
@@ -266,7 +266,7 @@ class Jig
       # 
       # Jig::XML.cdata('This data can have < & >')
       #
-      #   <![CDATA[
+      #   \<![CDATA[
       #   This data can have < & > ]]>
       def cdata(*args)
         args.push(lambda{|*x| yield(*x) }) if block_given?
@@ -279,7 +279,7 @@ class Jig
       #
       # Jig::XML.comment("This is a comment")
       # 
-      # <!-- This is a comment -->
+      # \<!-- This is a comment -->
       def comment(*args)
         args.push(lambda{|*x| yield(*x) }) if block_given?
         args.push GAP if args.empty?
@@ -291,7 +291,7 @@ class Jig
       #
       # Jig::XML.comment("This is a comment")
       # 
-      # <!-- 
+      # \<!-- 
       # This is a comment
       # -->
       def comments(*args)
