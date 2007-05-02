@@ -12,8 +12,8 @@ class Jig
    j.to_s            # => <?xml version="1.0" ?>\n
 
    j = Jig::XML.comment("sample")  
-   j.inspect         # => #<Jig: ["\<!-- ", "sample", " -->\n"]>
-   j.to_s            # => \<!-- sample -->\n
+   j.inspect         # => #<Jig: ["<!-- ", "sample", " -->\n"]>
+   j.to_s            # => <!-- sample -->\n
 
    j = Jig::XML.book(Jig::XMLtitle('War and Peace'))
    j.inspect         # => #<Jig: ["<book", nil, ">", "<title", nil, ">\n", "War and Peace", "</title>\n", "</book>\n"]>
@@ -96,25 +96,32 @@ class Jig
       Encode = Hash[*%w{& amp " quot > gt < lt}] # :nodoc:
       Entities = Encode.keys.join # :nodoc:
 
-      # Prepare _aname_ and _value_ for use as an attribute pair in an XML jig.
-      # If _value_ is a symbol or Gap, an attribute gap is returned.  The
-      # construction of the XML attribute string in this case is deferred until
-      # the gap is plugged and is handled by the attribute gap itself.
-      # 
-      # If _value_ is neither a symbol or a Gap, the pair is passed to aplug
-      # to be converted to a string or jig if necessary. See aplug for
-      # details.
+      # Prepare +aname+ and +value+ for use as an attribute pair in an XML jig.
+      # * If +value+ is nil or false, the empty string is returned.
+      # * If +value+ is a symbol, an attribute gap is returned.
+      # * If +value+ is a gap, the gap is returned.
+      # * If +value+ is a proc, method or jig, the construction of the attribute 
+      #   is deferred by wrapping it in a proc inside a jig.
+      # * Otherwise, +aname+ and +value+ are converted to strings and rendered as an XML
+      #   attribute pair.
       #
       #   attribute('value', :firstname)       Gap.new(:firstname) { ... }
       #   attribute('type', 'password')        'type="password"'
       #   attribute('type', nil)               ''
       def attribute(aname, value)
-        if Symbol === value
-          Gap.new(value) { |fill| aplug(aname, fill) }
-        elsif Gap === value
+        case value
+        when nil, false
+          ""
+        when Symbol
+          Gap.new(value) { |fill| attribute(aname, fill) }
+        when Gap
           value
+        when Proc, Method
+          Jig.new { attribute(aname, value.call) }
+        when Jig
+          Jig.new { attribute(aname, value.to_s) }
         else
-          aplug(aname, value)
+          " #{aname}=\"#{value}\""
         end
       end
 
@@ -131,31 +138,34 @@ class Jig
       # evaluate value and return an attribute specification if value is true. 
       # Otherwise the the jig will render as a null string.
       #
-      #   aplug('lastname', 'Einstein')               'lastname="Einstein"'
-      #   aplug('lastname', nil)                      ''
+      #   aplug('lastname', 'Einstein')               # 'lastname="Einstein"'
+      #   aplug('lastname', nil)                      # ''
       #   as = aplug('lastname', Jig.new('Einstein')
-      #   as.to_s                                     'lastname="Einstein"'
-      #   as = aplug('lastname', Jig.new { 
-      def aplug(name, value)
-        return "" unless value
-        return " #{name}=\"#{value}\"" unless value.respond_to?(:call) or Jig === value
-        Jig.new do
-          value = value.call if value.respond_to?(:call)
-          value && %Q{ #{name}="#{value}"} || ""
-        end
-      end
-      private :aplug
+      #   as.to_s                                     #  'lastname="Einstein"'
+      #   as = aplug('lastname', Jig.new { })         # XXX
 
       ATTRS = Gap::ATTRS # :nodoc:
       ATTRS_GAP = Gap.new(ATTRS) { |h| h && h.map { |k,v| Jig::XML.attribute(k, v) } } # :nodoc:
 
       def escape(target)
-        unless Jig === target 
-          target = new(target.to_s.gsub(/[#{Entities}]/) {|m| "&#{Encode[m]};" })
-        end
-        target
+        new(target.to_s.gsub(/[#{Entities}]/) {|m| "&#{Encode[m]};" })
       end
 
+      # Extend Jig.parse to recognize attribute gaps as %{=attrname,gapname=}.
+      # An attribute gap is returned.
+      def parse_other(delim, stripped)
+        if delim == '='
+          if stripped =~ /\A(.*),(.*)\z/
+            new({ $1 => $2.to_sym})
+          else
+            raise ArgumentError, "invalid gap syntax: #{quoted}"
+          end
+        else
+          super
+        end
+      end
+
+      # :nodoc:
       Element_Cache = {}
       def _element(tag) # :nodoc:
         whitespace = Newlines.include?(tag.to_sym) && "\n" || ""
@@ -164,12 +174,14 @@ class Jig
         end
       end
 
+      # :nodoc:
       def _anonymous(tag) # :nodoc:
         whitespace = Newlines.include?(tag.to_sym) && "\n" || ""
         new("<", tag.to_sym, ATTRS_GAP, ">#{whitespace}", GAP, "</", tag.to_sym, ">\n")
       end
 
       Empty_Element_Cache = {}
+      # :nodoc:
       def _element!(tag) # :nodoc:
         Empty_Element_Cache[tag] ||= begin
           new("<#{tag}".freeze, ATTRS_GAP, "/>\n".freeze).freeze
@@ -212,12 +224,11 @@ class Jig
 
       # Construct an anonymous XML element. The single argument provides a name for a
       # gap that replaces the XML start and end tags.  Use plug to replace the gaps
-      # with an actually tag.
+      # with an actual tag.
       #
-      #    a = _anonymous(:heading)
-      #   a.to_s                                     #    <></>
-      #    a.plug(:heading, 'h1').to_s                #   <h1></h1>
-      #   a.plug('contents').plug(:heading, 'h2')    #    <h2>contents</h2>
+      #   a = anonymous(:heading)       # => #<Jig: ["<", :heading, ">", :___, "</", :heading, ">\n"]>
+      #   b = a.plug(:heading, 'h1')    # => #<Jig: ["<", "h1", ">", :___, "</", "h1", ">\n"]>
+      #   b.plug('contents')            # => #<Jig: ["<", "h1", ">", "contents", "</", "h1", ">\n"]>
       def anonymous(tag='div', *args)
         attrs = args.last.respond_to?(:fetch) && args.pop || nil
         args.push(lambda{|*x| yield(*x) }) if block_given?
@@ -225,26 +236,25 @@ class Jig
         _anonymous(tag).plug(ATTRS => attrs, GAP => args)
       end
 
-      # Construct a jig for an HTML element with _tag_ as the tag.
-      # Construct a standard XML element with _tag_ as the XML tag, an attribute gap 
-      # named ATTRS, and a default gap as the contents of the element.
+      # Construct a standard XML element with +tag+ as the XML tag
+      # and a default gap for the contents of the element.
+      #   Jig::XML.element('h1')                    # => #<Jig: ["<h1", ">", :___, "</h1>\n"]>
+      #   Jig::XML.element('p', :class => 'body')   # => #<Jig: ["<p", "class=\"body\"", ">", :___, "</h1>\n"]>
       def element(tag='div', *args)
         attrs = args.last.respond_to?(:fetch) && args.pop || nil
-        args.push(lambda{|*x| yield(*x) }) if block_given?
+        args.push(lambda(&Proc.new)) if block_given?
         args.push GAP if args.empty?
         _element(tag).plug(ATTRS => attrs, GAP => args)
       end
 
-      # Construct a standard XML empty element with _tag_ as the XML tag, an attribute gap 
-      # named ATTRS.
-      # Examples:
+      # Construct a standard XML empty element with _tag_ as the XML tag.
       #
-      #    Jig::XHTML.element!('br')              # => <br />
+      #   Jig::XHTML.element!('br')              # => '<br />'
       #
       #   h = { :name => 'year', :maxsize => 4, :type => :type }
       #
-      #    j = Jig::XHTML.element!('input', h)    # => <input name="year" maxsize="4"/>
-      #    j.plug(:type => 'hidden')             # => <input name="year" maxsize="4" type="hidden"/>
+      #   j = Jig::XHTML.element!('input', h)    # => '<input name="year" maxsize="4"/>'
+      #   j.plug(:type => 'hidden')              # => '<input name="year" maxsize="4" type="hidden"/>'
       def element!(tag, *args)
         attrs = args.last.respond_to?(:fetch) && args.pop || nil
         _element!(tag).plug(ATTRS => attrs, GAP => nil)
@@ -252,8 +262,8 @@ class Jig
 
       # Construct an XML declaration tag.
       #
-      # Jig::XML.xml.to_s                # <?xml version="1.0">
-      # Jig::XML.xml(:lang => 'jp')      # <?xml version="1.0" lang="jp">
+      #   Jig::XML.xml                   # => '<?xml version="1.0">'
+      #   Jig::XML.xml(:lang => 'jp')    # => '<?xml version="1.0" lang="jp">'
       def xml(*args)
         attrs = { :version => '1.0' }
         attrs.merge!(args.pop) if args.last.respond_to?(:fetch) 
@@ -264,9 +274,9 @@ class Jig
       Cache = {} # :nodoc:
       # Construct a CDATA block
       # 
-      # Jig::XML.cdata('This data can have < & >')
+      #   Jig::XML.cdata('This data can have < & >')
       #
-      #   \<![CDATA[
+      #   <![CDATA[
       #   This data can have < & > ]]>
       def cdata(*args)
         args.push(lambda{|*x| yield(*x) }) if block_given?
@@ -277,9 +287,9 @@ class Jig
 
       # Construct an XML comment element.
       #
-      # Jig::XML.comment("This is a comment")
+      #   Jig::XML.comment("This is a comment")
       # 
-      # \<!-- This is a comment -->
+      #   <!-- This is a comment -->
       def comment(*args)
         args.push(lambda{|*x| yield(*x) }) if block_given?
         args.push GAP if args.empty?
@@ -289,11 +299,12 @@ class Jig
 
       # Construct a multiline XML comment element.
       #
-      # Jig::XML.comment("This is a comment")
-      # 
-      # \<!-- 
-      # This is a comment
-      # -->
+      #   Jig::XML.comment("first line\nsecond line")
+      #   
+      #   <!-- 
+      #   first line
+      #   second line
+      #   -->
       def comments(*args)
         args.push(lambda{|*x| yield(*x) }) if block_given?
         args.push GAP if args.empty?
