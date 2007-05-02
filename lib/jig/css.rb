@@ -57,6 +57,82 @@ class Jig
     Integer.class_eval { include IntegerHelper }
     Float.class_eval { include FloatHelper }
 
+    Newlines = [:html, :head, :body, :title, :div, :p, :table, :script, :form]
+    Encode = Hash[*%w{& amp " quot > gt < lt}]
+
+    class <<self
+      alias __new :new
+    end
+
+    Rule = __new(:__s, " {", :__ds, :__de, "}").freeze
+
+    class <<self
+
+      def new(selector=nil, plist=nil)
+        Rule | selector | plist
+      end
+
+      def to_declarations(hash)
+        hash.inject(Jig.null) { |d, (k,v)| 
+          v = case v
+          when Gap
+            v
+          when Symbol
+            Gap.new(v) { |fill| property_plug(k, fill) }
+          else
+            property_plug(k, v)
+          end
+          d.push(v)
+        }
+      end
+
+      # If value is false, return null string.
+      # Otherwise render name and value as an XML attribute pair:
+      #
+      # If value is not a Jig and is not a Proc, the string is constructed and returned.
+      # A Proc or a Jig, which may indirectly reference a Proc, is handled by constructing
+      # a lambda that responds to _to_s_.  The evaluation of the Proc or Jig is thus delayed
+      # until _to_s_ is called.
+      def property_plug(property, value)
+        return "" unless value
+        property = property.to_s.tr('_','-')
+        future = now = nil
+        if value.respond_to?(:call)
+          future = lambda do
+            if result = value.call
+              property_plug(property, result)
+            else
+              ""
+            end
+          end
+        elsif Jig === value
+          future = lambda { value.to_s }
+        elsif Array === value
+          now = "#{property}: #{value.join(', ')}; "
+        else
+          now = "#{property}: #{value}; "
+        end
+        if future
+          def future.to_s; call; end
+        end
+        now || future
+      end
+      private :property_plug
+
+      # Generate a universal selector rule
+      def us(*args)
+        new('*', *args)
+      end
+
+      def merge(*selectors)
+        selectors.inject {|list, sel| list.merge(sel) }
+      end
+
+      def method_missing(sym, *args)
+        new(sym.to_s, *args)
+      end
+    end
+
     # Construct a child selector.  The parent is the lhs selector and
     # the child is the rhs selector.
     # 
@@ -185,80 +261,5 @@ class Jig
       end
     end
 
-    class <<self
-      Newlines = [:html, :head, :body, :title, :div, :p, :table, :script, :form]
-      Encode = Hash[*%w{& amp " quot > gt < lt}]
-
-      def to_declarations(hash)
-        hash.inject(Jig.null) { |d, (k,v)| 
-          v = case v
-          when Gap
-            v
-          when Symbol
-            Gap.new(v) { |fill| property_plug(k, fill) }
-          else
-            property_plug(k, v)
-          end
-          d.push(v)
-        }
-      end
-
-      # If value is false, return null string.
-      # Otherwise render name and value as an XML attribute pair:
-      #
-      # If value is not a Jig and is not a Proc, the string is constructed and returned.
-      # A Proc or a Jig, which may indirectly reference a Proc, is handled by constructing
-      # a lambda that responds to _to_s_.  The evaluation of the Proc or Jig is thus delayed
-      # until _to_s_ is called.
-      def property_plug(property, value)
-        return "" unless value
-        property = property.to_s.tr('_','-')
-        future = now = nil
-        if value.respond_to?(:call)
-          future = lambda do
-            if result = value.call
-              property_plug(property, result)
-            else
-              ""
-            end
-          end
-        elsif Jig === value
-          future = lambda { value.to_s }
-        elsif Array === value
-          now = "#{property}: #{value.join(', ')}; "
-        else
-          now = "#{property}: #{value}; "
-        end
-        if future
-          def future.to_s; call; end
-        end
-        now || future
-      end
-      private :property_plug
-
-      alias __new :new
-
-      def new(selector='div', plist=nil)
-        rule(selector, plist)
-      end
-
-      def rule(selector=nil, plist=nil)
-        base = (@_rule ||= __new(:__s, " {", :__ds, :__de, "}").freeze)
-        base | selector | plist
-      end
-
-      # Generate a universal selector rule
-      def us(*args)
-        rule('*', *args)
-      end
-
-      def merge(*selectors)
-        selectors.inject {|list, sel| list.merge(sel) }
-      end
-
-      def method_missing(sym, *args)
-        rule(sym.to_s, *args)
-      end
-    end
   end
 end
