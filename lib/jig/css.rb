@@ -73,51 +73,42 @@ class Jig
       end
 
       def to_declarations(hash)
-        hash.inject(Jig.null) { |d, (k,v)| 
-          v = case v
-          when Gap
-            v
-          when Symbol
-            Gap.new(v) { |fill| property_plug(k, fill) }
-          else
-            property_plug(k, v)
-          end
-          d.push(v)
-        }
+        hash.inject(Jig.null) do |djig, (property, value)| 
+          djig.push(
+            case value
+              when Gap
+                value
+              when Symbol
+                Gap.new(value) { |fill| declaration(property, fill) }
+              else
+                declaration(property, value)
+            end
+          )
+        end
       end
 
-      # If value is false, return null string.
-      # Otherwise render name and value as an XML attribute pair:
-      #
-      # If value is not a Jig and is not a Proc, the string is constructed and returned.
-      # A Proc or a Jig, which may indirectly reference a Proc, is handled by constructing
-      # a lambda that responds to _to_s_.  The evaluation of the Proc or Jig is thus delayed
-      # until _to_s_ is called.
-      def property_plug(property, value)
-        return "" unless value
-        property = property.to_s.tr('_','-')
-        future = now = nil
-        if value.respond_to?(:call)
-          future = lambda do
-            if result = value.call
-              property_plug(property, result)
-            else
-              ""
-            end
-          end
-        elsif Jig === value
-          future = lambda { value.to_s }
-        elsif Array === value
-          now = "#{property}: #{value.join(', ')}; "
+      # Convert property/value pair for use in a CSS rule jig.
+      # 
+      def declaration(property, value)
+        case value
+        when nil, false
+          ""
+        when Symbol
+          Gap.new(value) { |fill| declaration(property, fill) }
+        when Gap
+          value
+        when Jig
+          Jig.new { declaration(property, value.to_s) }
+        when Proc, Method
+          Jig.new { declaration(property, value.call) }
+        when Array
+          seperator = (property == 'font-family' ? ", " : " ")
+          declaration(property, value.join(seperator))
         else
-          now = "#{property}: #{value}; "
+          property = property.to_s.tr('_','-')
+          "#{property}: #{value}; "
         end
-        if future
-          def future.to_s; call; end
-        end
-        now || future
       end
-      private :property_plug
 
       # Generate a universal selector rule
       def us(*args)
