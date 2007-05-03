@@ -61,6 +61,15 @@ class Jig
       def method_missing(sym, *args)
         new(sym.to_s, *args)
       end
+
+      def media(*types)
+        indent = Gap.new(:___) { |text| Jig.new { text.to_s.split("\n").map { |line| "  #{line}" }.join("\n")}  }
+        Jig.new("@media #{types.join(', ')} {\n", indent, "\n}\n")
+      end
+
+      def import(url, *types)
+        Jig.new("@import url(\"#{url}\") #{types.join(', ')}")
+      end
     end
 
     # Construct a CSS rule.
@@ -86,6 +95,8 @@ class Jig
 
     # Convert property/value pair for use in a CSS rule jig.
     # Any underscores in the property are converted to hyphens.
+    # If the property ends in '!', the '!' is stripped and the
+    # declaration is marked with the CSS keyword '!important'.
     # * If +value+ is nil or false, the empty string is returned.
     # * If +value+ is a symbol, a declaration gap is returned.
     # * If +value+ is a gap, the gap is returned.
@@ -113,8 +124,9 @@ class Jig
         seperator = (property == 'font[-_]family' ? ", " : " ")
         declaration(property, value.join(seperator))
       else
-        property = property.to_s.tr('_','-')
-        "#{property}: #{value}; "
+        property.to_s =~ /\A(.*[^!])(!?)\z/
+        property = $1.to_s.tr('_','-')
+        "#{property}: #{value}#{" !important" unless $2.empty?}; "
       end
     end
 
@@ -130,6 +142,13 @@ class Jig
     #   h1 + p     # => "h1 + p {}"
     def +(other)
       before(:__s, " + ", other.selector).before(:__de, other.declarations)
+    end
+
+    # Construct a general sibling selector.  The first sibling is 
+    # the lhs selector and the other sibling is rhs selector.
+    #   div ~ p     # => "div ~ p {}"
+    def ~(other)
+      before(:__s, "~", other.selector).before(:__de, other.declarations)
     end
 
     # Construct an id selector.  The id is the rhs value.
@@ -150,6 +169,38 @@ class Jig
     #   div >> p     # => "div p {}"
     def >>(other)
       before(:__s, " ", other.selector).before(:__de, other.declarations)
+    end
+
+    # Construct a negation pseudo class.  The delcarations associated
+    # with the other selector are discarded.
+    #   div - p     # => "div:not(p) {}"
+    def -(other)
+      before(:__s, ":not(", other.selector, ")")
+    end
+
+    # Construct a nth_child pseudo class.
+    def nth_child(a=0,b=0)
+      before(:__s, ":nth-child(#{a}n+#{b})")
+    end
+
+    # Construct a nth_last_child pseudo class.
+    def nth_last_child(a=0,b=0)
+      before(:__s, ":nth-last-child(#{a}n+#{b})")
+    end
+
+    # Construct a nth-of-type pseudo class.
+    def nth_of_type(a=0,b=0)
+      before(:__s, ":nth-of-type(#{a}n+#{b})")
+    end
+
+    # Construct a nth-last-of-type pseudo class.
+    def nth_last_of_type(a=0,b=0)
+      before(:__s, ":nth-last-of-type(#{a}n+#{b})")
+    end
+
+    # Construct a lang pseudo class.
+    def lang(lang)
+      before(:__s, ":lang(#{lang})")
     end
 
     # Merge this rule with another object. 
@@ -176,6 +227,10 @@ class Jig
       else
         before(:__s, ", ", other)
       end
+    end
+
+    def to_jig
+      Jig.new(plug( :__s => nil, :__de => nil, :__ds => nil ))
     end
 
     alias | :merge
