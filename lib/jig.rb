@@ -535,20 +535,21 @@ class Jig
   # modified.  To construct a new jig use #plug instead.
   # If the named plug is not defined, the jig is not changed.
   def plug!(*args, &block)
-    if block
-      fill!(&block)
-    elsif (first = args.first).respond_to?(:has_key?)
+    first, *more = args
+    return fill!(&block) if block or !first
+
+    case first
+    when Hash
       fill! { |g| first.fetch(g, g) }
-    elsif Symbol === first
-      if args.size == 1
-      	fill! { |g| g == GAP && (x = *args) || g }
+    when Symbol 
+      if more.empty?
+      	fill! { |g| g == GAP && first || g }
       else
-      	fill! { |g| g == first  && (x = *args[1..-1]) || g }
+      	fill! { |g| g == first  && (x = *more) || g }
       end
-    elsif args.empty?
-      fill! { nil }
     else
-      fill! { |g| g == GAP && (x = *args) || g }
+      more.unshift(first)
+      fill! { |g| g == GAP && (x = *more) || g }
     end
   end
   alias []= :plug!
@@ -561,16 +562,17 @@ class Jig
 
     case first
     when Hash
-      filln!(first) 
+      filln!(*first.keys) { |i| first[i] }
     when Integer 
-      filln!(first => second)
+      #filln!(first => second)
+      filln!(first) { second }
     when Array
-      filln! { |index| first[index] }
+      filln!(*(0...first.size)) { |index| first.fetch(index) }
     when Range 
-      pairs = first.inject({}) { |p, i| p[i] = second[i-first.begin]; p }
-      filln!(pairs)
+      # pairs = first.inject({}) { |p, i| p[i] = second[i-first.begin]; p }
+      filln!(*first) { |index| second && second.fetch(index-first.begin) }
     else
-      filln!(0 => first)
+      filln!(0) { first }
     end
 
   end
@@ -635,70 +637,59 @@ class Jig
   # If called without a block, all the gaps are replaced with the empty
   # string.
   def fill!
-    self.rawgaps = rawgaps.inject([]) do |list, gap|
-      next list unless block_given?
-
-      gname = gap.name
-      items = yield(gname)
-
-      next list << gap if items == gname
-
-      case (fill = *gap.fill(items))
-      when Jig
-        filling, gaps = fill.contents, fill.rawgaps
-      when String
-        filling, gaps = [[fill]], []
-      when nil
-        filling, gaps = [], []
-      else
-        fill = Jig[*fill]
-        filling, gaps = fill.contents, fill.rawgaps
-      end
-
-      match = list.size
-      case filling.size
-      when 0
-        contents[match,2] = [contents[match] + contents[match+1]]
-      when 1
-        contents[match,2] = [contents[match] + filling.first + contents[match+1]]
-      else
-        contents[match,2] = [contents[match] + filling.first] + filling[1..-2] + [filling.last + contents[match+1]]
-      end
-
-      list.concat(gaps)
-    end
-    self
-  end
-
-  def filln!(pairs=[])
     adjust = 0
-    if block_given?
-      pairs = (0...rawgaps.size).inject({}) {|m, index|  m.merge index => yield(index) }
-    end
-    pairs.sort_by {|index, items| index }.each do |index, items|
-      fill = rawgaps.fetch(index+adjust).fill(*items)
-      if fill.respond_to?(:to_jig)
-        fill = fill.to_jig
-        if fill.rawgaps.empty?
-          contents[index+adjust,2] = [[contents[index+adjust] + fill.contents[0] + contents[index+adjust1]]]
-        else
-          contents[index+adjust,2] = [[contents[index+adjust], fill.contents[0] ], fill.contents[1..-2], [fill.contents[-1], contents[index+adjust+1]]]
-        end
-        rawgaps[index+adjust,1] = fill.rawgaps
-        adjust += fill.rawgaps.size - 1
-      elsif Symbol === fill
-        rawgaps[index+adjust, 1] = Gap.new(fill)
-        adjust -= 1
-      elsif Gap === fill
-        rawgaps[index+adjust, 1] = fill
-      else
-        contents[index+adjust, 2] = [contents[index+adjust,2].insert(1, fill)]
-        rawgaps[index+adjust, 1] = nil
-        adjust -= 1
-      end
+    gaps.each_with_index do |gap, index|
+      match = index + adjust
+      items = block_given? && yield(gap)
+      fill = *rawgaps.at(match).fill(items)
+      adjust += plug_at!(match, fill) - 1
     end
     self
   end
+
+  # Calls the block once for each index passing the index to the block.
+  # The gap is replaced with the return value of the block.
+  # If called without a block, the indexed gaps are replaced 
+  # with the empty string.
+  def filln!(*indices)
+    # XXX need to handle indices that are too small
+    adjust = 0
+    normalized = indices.map { |x| (x >= 0) && x || (x+rawgaps.size) }.sort
+    normalized.each do |index|
+      match = index + adjust
+      gap = rawgaps.fetch(match)
+      items = block_given? && yield(index)
+      fill = *gap.fill(items)
+      adjust += plug_at!(match, fill) - 1
+    end
+    self
+  end
+
+  def plug_at!(n, fill)
+    case fill
+    when Jig
+      filling, gaps = fill.contents, fill.rawgaps
+    when String
+      filling, gaps = [[fill]], []
+    when nil
+      filling, gaps = [], []
+    else
+      fill = Jig[*fill]
+      filling, gaps = fill.contents, fill.rawgaps
+    end
+
+    case filling.size
+    when 0
+      contents[n,2] = [contents[n] + contents[n+1]]
+    when 1
+      contents[n,2] = [contents[n] + filling.first + contents[n+1]]
+    else
+      contents[n,2] = [contents[n] + filling.first] + filling[1..-2] + [filling.last + contents[n+1]]
+    end
+    rawgaps[n, 1] = gaps
+    gaps.size
+  end
+
 
   # Append a jig onto the end of the current jig.
   def push_jig(other)
