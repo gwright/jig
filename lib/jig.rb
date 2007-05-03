@@ -667,12 +667,14 @@ class Jig
 
   def plug_at!(n, fill)
     case fill
-    when Jig
-      filling, gaps = fill.contents, fill.rawgaps
     when String
-      filling, gaps = [[fill]], []
+      contents[n,2] = [contents[n] + [fill] + contents[n+1]]
+      rawgaps.delete_at(n)
+      return 0
     when nil
-      filling, gaps = [], []
+      contents[n,2] = [contents[n] + contents[n+1]]
+      rawgaps.delete_at(n)
+      return 0
     else
       fill = Jig[*fill]
       filling, gaps = fill.contents, fill.rawgaps
