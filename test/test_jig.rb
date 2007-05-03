@@ -199,9 +199,12 @@ class TestJig < Test::Unit::TestCase
   end
 
   def test_plugn
-    j = Jig.new(:a, :b)
-    assert_equal("a", j.plugn(0, "a").to_s)
-    assert_equal("a", j.plugn("a").to_s)
+    list = Jig[:item, ',',  :item, ',', :item]
+    assert_equal( ",second,", list.plugn(1, 'second').to_s)
+    assert_equal( ",second,third", list.plugn(1..2, %w{second third}).to_s)
+    assert_equal( "first,,", list.plugn('first').to_s)
+    assert_equal( "first,second,", list.plugn(%w{first second}).to_s)
+    assert_equal( "first,,third", list.plugn(0 => 'first', 2 => 'third').to_s)
   end
 
   def test_plug_nil

@@ -288,7 +288,7 @@ class Jig
     case rhs
     when Integer
       raise ArgumentError, "count must be greater than zero" if rhs < 1
-      (1...rhs).inject(dup)  { |j,i| j.push_jig(self) }
+      (1...rhs).inject(dup)  { |j,i| j.push(self) }
     when Array
       rhs.inject(Jig.null) { |j,x| j.concat( plug(x) ) }
     else
@@ -344,31 +344,37 @@ class Jig
   end
 
   # call-seq:
-  #   plugn(index, *items) -> a_jig
+  #   plugn(n, item)       -> a_jig
+  #   plugn(range, array)  -> a_jig
+  #   plugn(symbol, array) -> a_jig
   #   plugn(array)         -> a_jig
   #   plugn(hash)          -> a_jig
-  #   plugn(*items)        -> a_jig
+  #   plugn(item)          -> a_jig
   #
-  # Similar to #plug but gaps are identified by numerical index, not by name.
+  # Similar to #plug but gaps are identified by an integer offset, not by name.
+  # Unlike #index, and #slice, #plugn assumes that gaps are indexed 
+  # consecutively starting with 0. 
   #
-  # When called with an array, the nth item of the array is use to plug the
-  # nth gap.
+  # * When the first argument is an integer, +n+, the n-th gap
+  #   is replaced with the item.
+  # * When the first argument is a range, the gaps indexed by +range+
+  #   are replaced with the items in +array+.
+  # * When the only argument is an array, the gaps indexed by
+  #   +0...array.size+ are replaced with the items in the array.
+  # * When the only argument is a hash, the keys of the hash are taken
+  #   as indices and the respective gaps are replaced with the associated
+  #   values from the hash.
+  # * Any other single argument is taken as the replacement for the first
+  #   gap.
   #
-  # When called with a hash, the hash keys are used as indexes into the
-  # gap list.
-  #
-  # When called with no explicit index or implicit index list (array or
-  # hash), the first gap (index = 0) is plugged with the items.
-  #
-  #   list = Jig["1) \n", :item, "2) \n", :item, "3) \n'", :item]
-  #   result = list.plugn(:item, 'first', 'second', 'third')
-  #   puts result           #   "1) first\n2) second\n3) third\n"
+  #   list = Jig[:item, ',', :item, ',', :item]
+  #   list.plugn(1, 'second')                           # => ",second,"
+  #   list.plugn(1..2, %w{second third})                # => ",second,third"
+  #   list.plugn('first')                               # => "first,,"
+  #   list.plugn(%w{first second})                      # => "first,second,"
+  #   list.plugn(0 => 'first', 2 => 'third')            # => "first,,third"
   def plugn(*args, &block)
     dup.plugn!(*args, &block)
-  end
-
-  def plug_at(*gaps, &block)
-    dup.plug_at!(*gaps, &block)
   end
 
   # Returns a new jig constructed by inserting the item *before* the specified gap.
@@ -469,11 +475,18 @@ class Jig
   def push(*items)
     items.each do |i|
       case i
-      when String   then contents.last << i
-      when Symbol   then push_gap Gap.new(i)
-      when Jig      then push_jig i
-      when NilClass, FalseClass then next
-      when Jig::Gap then push_gap i
+      when String   then 
+        contents.last << i
+      when Symbol   then 
+        rawgaps << Gap.new(i)
+        contents << []
+      when Jig      then 
+        push_jig i
+      when NilClass, FalseClass then 
+        next
+      when Jig::Gap then 
+        rawgaps << i
+        contents << []
       else 
         if respond_to?(p = "push_#{i.class.name.downcase}")
           send(p, i)
@@ -491,6 +504,7 @@ class Jig
           contents.last << i
         end
       end
+      #contents.last.concat(add)
     end
     self
   end
@@ -526,35 +540,40 @@ class Jig
     elsif (first = args.first).respond_to?(:has_key?)
       fill! { |g| first.fetch(g, g) }
     elsif Symbol === first
-			if args.size == 1
-      	fill!(GAP => (x = *args))
-			else
-      	fill!(first => (x = *args[1..-1]))
-			end
+      if args.size == 1
+      	fill! { |g| g == GAP && (x = *args) || g }
+      else
+      	fill! { |g| g == first  && (x = *args[1..-1]) || g }
+      end
     elsif args.empty?
       fill! { nil }
     else
-      fill!(GAP => (x = *args))
+      fill! { |g| g == GAP && (x = *args) || g }
     end
   end
   alias []= :plug!
-
-  def plugn!(*args, &block)
-    if block
-      filln!(&block)
-    elsif (first = args.first).respond_to?(:has_key?)
-      filln!(first) 
-    elsif Integer === args.first
-      filln!(first => (x = *args[1..-1]))
-    elsif Array === args.first && args.size == 1
-      filln! { |index| args.first[index] }
-    elsif args.empty?
-      filln! { nil }
-    else
-      filln!(0 => (x = *args))
-    end
-  end
   alias << :plug!
+
+  # Same as #plug but modifies self.
+  def plugn!(first=nil, second=nil, &block)
+
+    return filln!(&block) if block or !first
+
+    case first
+    when Hash
+      filln!(first) 
+    when Integer 
+      filln!(first => second)
+    when Array
+      filln! { |index| first[index] }
+    when Range 
+      pairs = first.inject({}) { |p, i| p[i] = second[i-first.begin]; p }
+      filln!(pairs)
+    else
+      filln!(0 => first)
+    end
+
+  end
 
   # A string is constructed by concatenating the contents of the jig.
   # Gaps are effectively considered null strings.  Any procs in the jig
@@ -610,64 +629,45 @@ class Jig
   # the number of pairs.
   #
   # :start-doc:
-  #
-  def fill!(pairs=nil, &b)
-    if pairs
-      _fill! { |g| pairs.fetch(g, g) }
-    else
-      _fill!(&b)
-    end
-  end
-
-  def _fill!
+  # Calls the block once for each gap in the jig passing the name of
+  # the gap. If the block returns the gapname, the gap remains in the
+  # jig, otherwise the gap is replaced with the return value of the block.
+  # If called without a block, all the gaps are replaced with the empty
+  # string.
+  def fill!
     self.rawgaps = rawgaps.inject([]) do |list, gap|
       next list unless block_given?
 
       gname = gap.name
       items = yield(gname)
 
-      if items == gname
-        next list << gap 
+      next list << gap if items == gname
+
+      case (fill = *gap.fill(items))
+      when Jig
+        filling, gaps = fill.contents, fill.rawgaps
+      when String
+        filling, gaps = [[fill]], []
+      when nil
+        filling, gaps = [], []
+      else
+        fill = Jig[*fill]
+        filling, gaps = fill.contents, fill.rawgaps
       end
 
       match = list.size
-      case fill = gap.fill(items)
-      when nil
-        filling, gaps = [[]], []
-      when Jig
-        filling, gaps = fill.contents, fill.rawgaps
-      when Symbol
-        filling, gaps = [], [Gap.new(fill)]
-      when Gap
-        filling, gaps = [], [fill]
-      else
-        if fill.respond_to?(:fetch)
-          fill = fill.empty? && Jig.null || Jig[*fill]
-          filling, gaps = fill.contents, fill.rawgaps
-        elsif fill.respond_to?(:to_jig) || fill.respond_to?(:call)
-          fill = Jig[*fill]
-          filling, gaps = fill.contents, fill.rawgaps
-        else
-          filling, gaps = [[fill]], []
-        end
-      end
       case filling.size
       when 0
-        # nothing to do
+        contents[match,2] = [contents[match] + contents[match+1]]
       when 1
-        contents[match,2] = [ contents[match] + filling[0] + contents[match+1] ]
+        contents[match,2] = [contents[match] + filling.first + contents[match+1]]
       else
-        contents[match,2] = [ contents[match] + filling[0]] + filling[1..-2] + [filling[-1] + contents[match+1]]
+        contents[match,2] = [contents[match] + filling.first] + filling[1..-2] + [filling.last + contents[match+1]]
       end
+
       list.concat(gaps)
     end
     self
-  end
-
-  def plug_at!(*gaps)
-    fill! { |gname|
-      gaps.include?(gname) && yield(gname) || gname
-    }
   end
 
   def filln!(pairs=[])
@@ -699,14 +699,6 @@ class Jig
     end
     self
   end
-
-  # Append a gap onto the end of the current jig.
-  def push_gap(gap)
-    @rawgaps << gap
-    @contents << []
-    self
-  end
-  protected :push_gap
 
   # Append a jig onto the end of the current jig.
   def push_jig(other)
