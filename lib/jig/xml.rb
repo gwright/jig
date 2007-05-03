@@ -105,9 +105,15 @@ class Jig
       # * Otherwise, +aname+ and +value+ are converted to strings and rendered as an XML
       #   attribute pair.
       #
-      #   attribute('value', :firstname)       Gap.new(:firstname) { ... }
-      #   attribute('type', 'password')        'type="password"'
-      #   attribute('type', nil)               ''
+      #   attribute('value', :firstname)                  # => Gap.new(:firstname) {...}
+      #   attribute('type', 'password')                   # => 'type="password"'
+      #   attribute('type', nil)                          # => ''
+      #   attribute('lastname', 'Einstein')               # => 'lastname="Einstein"'
+      #   a = attribute('lastname', Jig.new('Einstein'))
+      #   a.to_s                                          # => 'lastname="Einstein"'
+      #   b = attribute('lastname', Jig.new { })          
+      #   b.to_s                                          # => ''
+      #
       def attribute(aname, value)
         case value
         when nil, false
@@ -125,28 +131,13 @@ class Jig
         end
       end
 
-      # Returns an object that evaluates to an XML attribute specification when
-      # to_s is called.  The null string is returned if value is determined to
-      # be false or nil.
-      #
-      # If value is not true, returns the null string immediately.
-      # If value is neither a jig nor an object that responds to _call_, the 
-      # corresponding XML attribute specification is constructed and returned.
-      # 
-      # If value is a proc or a jig then the construction of the XML attribute must be
-      # deferred. In this case a jig is returned.   When rendered, the jig will
-      # evaluate value and return an attribute specification if value is true. 
-      # Otherwise the the jig will render as a null string.
-      #
-      #   aplug('lastname', 'Einstein')               # 'lastname="Einstein"'
-      #   aplug('lastname', nil)                      # ''
-      #   as = aplug('lastname', Jig.new('Einstein')
-      #   as.to_s                                     #  'lastname="Einstein"'
-      #   as = aplug('lastname', Jig.new { })         # XXX
+      # Jig::XML#parse recognizes and parses attribute gaps in the form: %{=attribute,gapname=}
+      #   Jig.parse("<input%{=type,itype} />").plug(:itype, 'password')   # <input type="password" />
+      def parse(*)
+        super
+      end
 
-      ATTRS = Gap::ATTRS # :nodoc:
-      ATTRS_GAP = Gap.new(ATTRS) { |h| h && h.map { |k,v| Jig::XML.attribute(k, v) } } # :nodoc:
-
+      # Returns a new string with <, >, and & converted to their HTML entity codes.
       def escape(target)
         new(target.to_s.gsub(/[#{Entities}]/) {|m| "&#{Encode[m]};" })
       end
@@ -164,6 +155,12 @@ class Jig
           super
         end
       end
+      private :parse_other
+
+      # :nodoc:
+      ATTRS = Gap::ATTRS 
+      # :nodoc:
+      ATTRS_GAP = Gap.new(ATTRS) { |h| h && h.map { |k,v| Jig::XML.attribute(k, v) } } 
 
       # :nodoc:
       Element_Cache = {}

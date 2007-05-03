@@ -524,7 +524,7 @@ class Jig
     if block
       fill!(&block)
     elsif (first = args.first).respond_to?(:has_key?)
-      fill!(first) 
+      fill! { |g| first.fetch(g, g) }
     elsif Symbol === first
 			if args.size == 1
       	fill!(GAP => (x = *args))
@@ -610,16 +610,21 @@ class Jig
   # the number of pairs.
   #
   # :start-doc:
-  def fill!(pairs=nil)
+  #
+  def fill!(pairs=nil, &b)
+    if pairs
+      _fill! { |g| pairs.fetch(g, g) }
+    else
+      _fill!(&b)
+    end
+  end
+
+  def _fill!
     self.rawgaps = rawgaps.inject([]) do |list, gap|
+      next list unless block_given?
+
       gname = gap.name
-      items = if block_given? 
-        yield(gname)
-      elsif pairs
-        pairs.fetch(gname, gname)
-      else
-        gname
-      end
+      items = yield(gname)
 
       if items == gname
         next list << gap 
@@ -628,13 +633,13 @@ class Jig
       match = list.size
       case fill = gap.fill(items)
       when nil
-        filling, gaps = [[]], nil
+        filling, gaps = [[]], []
       when Jig
         filling, gaps = fill.contents, fill.rawgaps
       when Symbol
-        filling, gaps = nil, Gap.new(fill)
+        filling, gaps = [], [Gap.new(fill)]
       when Gap
-        filling, gaps = nil, fill
+        filling, gaps = [], [fill]
       else
         if fill.respond_to?(:fetch)
           fill = fill.empty? && Jig.null || Jig[*fill]
@@ -643,18 +648,18 @@ class Jig
           fill = Jig[*fill]
           filling, gaps = fill.contents, fill.rawgaps
         else
-          filling, gaps = [[fill]], nil
+          filling, gaps = [[fill]], []
         end
       end
-      if filling
-        if filling.size == 1
-          contents[match,2] = [ contents[match] + filling[0] + contents[match+1] ]
-        else
-          contents[match,2] = [ contents[match] + filling[0]] + filling[1..-2] + [filling[-1] + contents[match+1]]
-        end
+      case filling.size
+      when 0
+        # nothing to do
+      when 1
+        contents[match,2] = [ contents[match] + filling[0] + contents[match+1] ]
+      else
+        contents[match,2] = [ contents[match] + filling[0]] + filling[1..-2] + [filling[-1] + contents[match+1]]
       end
-      list.push(*gaps) if gaps
-      list
+      list.concat(gaps)
     end
     self
   end
@@ -715,7 +720,6 @@ class Jig
     # Convert a string into a jig. The string is scanned for blocks deliminated by %{...}.
     # The blocks are interpreted as follows:
     #   %{:identifier:}          is converted into a gap named *identifier*
-    #   %{=attribute,gapname=}   is converted into an attribute gap named *gapname*
     #   %{!code!}                is converted to a lambda
     #
     # Code blocks are interpreted when the resulting jig is rendered via Jig#to_s.
@@ -726,7 +730,6 @@ class Jig
     #   Jig.parse("abc").to_s     # abc
     #   Jig.parse("1 %{:x} 3")    # Jig[1, :x, 3]
     #   Jig.parse("1 %{:x} 3")    # Jig[1, :x, 3]
-    #   Jig.parse("<input%{=type,itype} />").plug(:itype, 'password')   # <input type="password" />
     #
     #   a = 5
     #   Jig.parse("%{a + 1}", binding).to_s    #  6
@@ -765,11 +768,8 @@ class Jig
     def parse_other(delim, stripped)
       raise ArgumentError, "invalid delimiter: \"#{delim}\""
     end
-
-    # Read the contents of filename into a string and parse it as Jig.
-    def parse_file(filename, *context)
-      parse(File.read(filename), *context)
-    end
+    private :parse_other
+    
   end
 
   # call-seq:
@@ -787,17 +787,8 @@ class Jig
     dup.concat(obj)
   end
 
-  def append(obj)
-    dup.concat(obj)
-  end
-
+  alias append :+
   alias [] :slice
   alias * :mult
   alias % :plug
-
-  module Proxy
-    def method_missing(*a, &b)
-      Jig.send(*a, &b)
-    end
-  end
 end
