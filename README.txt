@@ -15,7 +15,7 @@ other tools.
 
 A jig is an ordered sequence of objects (usually strings) and named
 _gaps_.  When rendered as a string by Jig#to_s, the objects are
-rendered in order by calling #to_s and the gaps are skipped.
+rendered calling #to_s on each object in order. The gaps are skipped.
 
 A new jig may be constructed from an existing jig by 'plugging' one
 or more of the named gaps.  The new jig shares the objects and their
@@ -27,58 +27,43 @@ objects.  When a gap is plugged with another jig, the contents
 Several subclasses (Jig::XML, Jig::XHTML, Jig::CSS) are defined to
 help in the construction of XML, XHTML, and CSS documents.
 
-This is a jig with a single gap named "alpha".
-  j = Jig.new(:alpha)
+This is a jig with a single gap named :alpha.
+  Jig.new(:alpha)                         # => <#Jig: [:alpha]>
+This is a jig with two objects, 'before' and 'after' separated by
+a gap named :middle.
+  j = Jig.new('before', :middle, 'after)  # => #<Jig: ["before", :middle, "after"]>
 The plug operation derives a new jig from the old jig.
-  j.plug(:alpha, "during")        # -> beforeduringafter
-
+  j.plug(:middle, ", during, and")        # => #<Jig: ["before", ", during, and ", "after"]>
 This operation doesn't change j.  It can be used again:
-
-  j.plug(:alpha, "and")           # -> beforeandafter
-
+  j.plug(:middle, " and ")                # => #<Jig: ["before", " and ", "after"]>
 There is a destructive version of plug that modifies
 the jig in place:
-
-  j.plug!(:alpha, "filled")       # -> beforefilledafter
-
+  j.plug!(:middle, "filled")          # => #<Jig: ["before", "filled", "after"]>
+  j                                   # => #<Jig: ["before", "filled", "after"]>
 There are a number of ways to construct a Jig and many of
 them insert an implicit gap into the Jig.  This gap is
 identified as :___ and is used as the default gap
 for plug operations when one isn't provided:
 
-  Jig.new("A", :___, "C").plug("B")   # -> ABC
+  puts Jig.new("A", :___, "C").plug("B")   # => ABC
 
 In order to make Jig's more useful for HTML generation,
-the Jig class supports a variety of convenience methods;
+the Jig::XHTML class supports a variety of convenience methods;
 
-  b = Jig.element("body")     # <body></body>
-  b.plug("text")              # <body>text</body>
+  HT = Jig::XHTML
+  puts b = HT.element("body")     # => <body></body>
+  puts b.plug("text")             # => <body>text</body>
 
 Method missing makes this even simpler:
 
-  b = Jig.body
-  b.plug("text")
+  b = HT.span
+  puts b.plug("text")             # => <span>text</span>
 
 Attributes can be specified with a hash:
 
-  b = Jig.p({:class => "summary"})
-  b.plug("This is a summary")
-  # <p class="summary">This is a summary</p>
+  summary = HT.p(:class => "summary")
+  puts summary.plug("This is a summary") # => <p class="summary">This is a summary</p>
 
-
-== SYNOPSYS:
-
-  j = Jig.new("a", :middle, "c")
-  puts j                          # => "ac"
-
-  j2 = j.plug(:middle, "b")
-  puts j2 == j                    # => false
-  puts j2                         # => "abc"
-  
-  j3 = Jig.new(:alpha, :beta)     # two gaps
-  j4 = j3.plug(:alpha, j)         # insert j into j3
-  p j                             # => <#Jig["a", :middle, "c", :beta]>
-  
 == REQUIREMENTS:
 
 * Ruby 1.8

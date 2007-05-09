@@ -463,26 +463,6 @@ class MultipleGaps < Test::Unit::TestCase
     assert_raises(TypeError) { a << 'a' }
   end
 
-  def old_test_dup_clone
-    a = X.div
-    b = a.dup
-    assert_not_same(a, b)
-    assert_as_string(a, b)
-    assert_equal(a, b)
-    assert_not_similar(a, b.plug!("foo"))
-
-    a = X.div
-    b = a.deep_dup
-    assert_not_same(a, b)
-    assert_as_string(a, b)
-    assert_equal(a, b)
-    assert_not_similar(a, b.plug!("foo"))
-
-    b << "filled"
-    assert_not_equal(a, b, 'deep duplicates are independent')
-    assert_not_similar(a, b, 'deep duplicates are independent')
-  end
-
   def test_conversion
     a = X.new('a', :alpha, 'b')
     assert_equal("axb", a.plug(:alpha, :beta).plug(:beta, 'x').to_s)
@@ -515,4 +495,26 @@ class MultipleGaps < Test::Unit::TestCase
 		assert_equal [:alpha, :beta], j.gaps
 		assert_equal "ab", j.plug(:alpha => 'a', :beta => 'b').to_s
 	end
+
+  def test_plug_all_gaps
+    j = Jig.new(:a, :b, :___)
+    assert_equal [], j.plug.gaps
+  end
+
+  def test_wrap
+    ten = Jig.new(Jig::Gap.wrap(10))
+    assert_equal "this is ok", ten.plug("this is ok").to_s
+    assert_equal "this will\nbe split", ten.plug("this will be split").to_s
+  end
+
+  def test_comment
+    ten = Jig.new(Jig::Gap.comment(nil, nil, nil, 10))
+    assert_equal "this is ok\n", ten.plug("this is ok\n").to_s
+    assert_equal "this will\nbe split\n", ten.plug("this will be split\n").to_s
+    #   Jig::Gap.comment                    # text reformated to 72 columns
+    #   Jig::Gap.comment(:___, "# ")        # text reformated as Ruby comments
+    #   Jig::Gap.comment(:___, "// ")       # text reformated as Javascript comments
+    #   Jig::Gap.comment(:___, " *", "/* ") # text reformated as C comments
+    #   Jig::Gap.comment(:___, " ", "<-- ", " -->") # text reformated as XML comments
+  end
 end

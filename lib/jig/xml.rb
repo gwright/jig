@@ -38,7 +38,7 @@ class Jig
     puts j                              # <p>\n</p>
     puts j.plug('Four score...')        # <p>Four score...\n</p>
 
- Attributes
+ =Attributes
 
  A hash passed as a final argument to an XML element constructor is interpreted
  as potential XML attributes for the element.  Each key/value pair is considered 
@@ -50,37 +50,36 @@ class Jig
  * a jig is inserted as deferred attribute
  * any other value is inserted as an attribute with the value converted via #to_s
 
- Attribute Gaps
+ =Attribute Gaps
 
  If an attribute gap remains unfilled it will not appear in the rendered jig.  When
  an attribute gap is filled, the result is processed as described for the key/value
  pairs of a hash.
 
- Deferred Attributes
+ =Deferred Attributes
  
  A deferred attribute is not finalized until the jig is rendered via #to_s. If a
  deferred proc evaluates to nil, the attribute pair is silently discarded otherwise
  the resulting value is converted to a string and an XML attribute is rendered.
  A deferred jig is rendered and the result used as the XML attribute value.
 
- Examples:
    X = Jig::XHTML
-   X.div('inner', :class => 'urgent')      # => <div class="urgent">inner</div>
-   j = X.div('inner', :class => :class)    # => <div>inner</div>
-   j.plug(:class, 'urgent')                # => <div class="urgent">inner</div>
-   j.plug(:class, nil)                      # => <div>inner</div>
+   X.div('inner', :class => 'urgent')           # => <div class="urgent">inner</div>
+   j = X.div('inner', :class => :class)         # => <div>inner</div>
+   j.plug(:class, 'urgent')                     # => <div class="urgent">inner</div>
+   j.plug(:class, nil)                          # => <div>inner</div>
    
-   j = X.input(:type => :type)              # => <input/>
-   j.plug(:type, "")                        # => <input type="" />
-   j.plug(:type, 'password')                # => <input type="password" />
+   j = X.input(:type => :type)                  # => <input/>
+   j.plug(:type, "")                            # => <input type="" />
+   j.plug(:type, 'password')                    # => <input type="password" />
 
    css = nil
-   j = X.div('inner', :class => proc { css })  # => <div>inner</div>
+   j = X.div('inner', :class => proc { css })   # => <div>inner</div>
    css = 'urgent'
-   j.to_s                                      # => <div class="header">inner</div>
+   j.to_s                                       # => <div class="header">inner</div>
 
    color = Jig.new('color: ', { %w{reb blue green}[rand(3)] }
-   j = X.div('inner', :style=> color)          # => <div style="color: red">inner</div>
+   j = X.div('inner', :style=> color)           # => <div style="color: red">inner</div>
    j.to_s                                       # => <div style="color: green">inner</div>
 =end
   class XML < Jig
@@ -92,11 +91,13 @@ class Jig
     protected :push_hash
 
     class <<self
-      Newlines = [:html, :head, :body, :title, :div, :p, :table, :script, :form] # :nodoc:
+      # These elements will have newlines inserted into the default constructions to 
+      # increase the readability of the generated XML.
+      Newlines = [:html, :head, :body, :title, :div, :p, :table, :script, :form] 
       Encode = Hash[*%w{& amp " quot > gt < lt}] # :nodoc:
       Entities = Encode.keys.join # :nodoc:
 
-      # Prepare +aname+ and +value+ for use as an attribute pair in an XML jig.
+      # Prepare +aname+ and +value+ for use as an attribute pair in an XML jig:
       # * If +value+ is nil or false, the empty string is returned.
       # * If +value+ is a symbol, an attribute gap is returned.
       # * If +value+ is a gap, the gap is returned.
@@ -104,16 +105,17 @@ class Jig
       #   is deferred by wrapping it in a proc inside a jig.
       # * Otherwise, +aname+ and +value+ are converted to strings and rendered as an XML
       #   attribute pair.
-      #
+      # Examples:
       #   attribute('value', :firstname)                  # => Gap.new(:firstname) {...}
       #   attribute('type', 'password')                   # => 'type="password"'
       #   attribute('type', nil)                          # => ''
       #   attribute('lastname', 'Einstein')               # => 'lastname="Einstein"'
-      #   a = attribute('lastname', Jig.new('Einstein'))
+      #   a = attribute('lastname', Jig.new('Einstein'))  # => #<Jig: [#<Proc:0x00058624>]>
       #   a.to_s                                          # => 'lastname="Einstein"'
-      #   b = attribute('lastname', Jig.new { })          
+      #   b = attribute('lastname', Jig.new { })          # => #<Jig: [#<Proc:0x000523dc]>
       #   b.to_s                                          # => ''
-      #
+      #   c = attribute('lastname', Jig.new {""})         # => #<Jig: [#<Proc:0x00055a3c]>
+      #   c.to_s                                          # => 'lastname=""'
       def attribute(aname, value)
         case value
         when nil, false
@@ -131,7 +133,8 @@ class Jig
         end
       end
 
-      # Jig::XML#parse recognizes and parses attribute gaps in the form: %{=attribute,gapname=}
+      # In addition to the parsing done by Jig.parse, Jig::XML.parse recognizes and 
+      # constructs attribute gaps from text of the form: %{=attribute,gapname=}
       #   Jig.parse("<input%{=type,itype} />").plug(:itype, 'password')   # <input type="password" />
       def parse(*)
         super
@@ -157,28 +160,36 @@ class Jig
       end
       private :parse_other
 
-      # :nodoc:
-      ATTRS = Gap::ATTRS 
-      # :nodoc:
-      ATTRS_GAP = Gap.new(ATTRS) { |h| h && h.map { |k,v| Jig::XML.attribute(k, v) } } 
+      ATTRS = Gap::ATTRS # :nodoc:
+      ATTRS_GAP = Gap.new(ATTRS) { |h| h && h.map { |k,v| Jig::XML.attribute(k, v) } } # :nodoc:
 
-      # :nodoc:
-      Element_Cache = {}
-      def _element(tag) # :nodoc:
-        whitespace = Newlines.include?(tag.to_sym) && "\n" || ""
+      Element_Cache = {} # :nodoc:
+      # Construct a generic XML element with two gaps:
+      # * +:__a+ filters a hash into an XML attribute list
+      # * +:___+ which is a default gap
+      # Jig::XML._element('div')      # => #<Jig: ["<div", :"__a{}", ">\n", :___, "</div>\n"]>
+      def _element(tag) 
         Element_Cache[tag] ||= begin
+          whitespace = Newlines.include?(tag.to_sym) && "\n" || ""
           new("<#{tag}".freeze, ATTRS_GAP, ">#{whitespace}".freeze, GAP, "</#{tag}>\n".freeze).freeze
         end
       end
 
-      # :nodoc:
+      # Construct a generic XML element with four gaps:
+      # * +:__a+ filters a hash into an XML attribute list
+      # * +:___+ which is a default gap
+      # * +tag+ which acts a placeholder for the element's opening and closing tag
+      # Jig::XML._element(:tag)      # => #<Jig: ["<", :tag, :"__a{}", ">\n", :___, "</", :tag, ">\n"]>
       def _anonymous(tag) # :nodoc:
         whitespace = Newlines.include?(tag.to_sym) && "\n" || ""
         new("<", tag.to_sym, ATTRS_GAP, ">#{whitespace}", GAP, "</", tag.to_sym, ">\n")
       end
 
-      Empty_Element_Cache = {}
-      # :nodoc:
+      Empty_Element_Cache = {} # :nodoc:
+      # Construct an XML empty element with one gap:
+      # * +:__a+ filters a hash into an XML attribute list
+      # * +:___+ which is a default gap
+      # Jig::XML._element!('br')      # => #<Jig: ["<br", :"__a{}", "/>"]>
       def _element!(tag) # :nodoc:
         Empty_Element_Cache[tag] ||= begin
           new("<#{tag}".freeze, ATTRS_GAP, "/>\n".freeze).freeze
@@ -192,12 +203,12 @@ class Jig
       # If a method contains an '_', it is converted to a ':' to provide XML namespace tags.
       # If a method contains an '__', it is converted to a single '_'.
       #
-      # Jig::XML.div.to_s        # <div></div>
-      # Jig::XML.div_.to_s       # <div></div>
-      # Jig::XML.br!to_s         # <br />
-      # Jig::XML.heading?         # Jig["<", :heading, ">", :___, "</", :heading, ">"]
-      # Jig::XML.xhtml_h1        # <xhtml:h1></xhtml:h1>
-      # Jig::XML.xhtml__h1       # <xhtml_h1></xhtml_h1>
+      # Jig::XML.div.to_s        # => "<div></div>"
+      # Jig::XML.div_.to_s       # => "<div></div>"
+      # Jig::XML.br!to_s         # => <br />"
+      # Jig::XML.heading?        # => Jig["<", :heading, ">", :___, "</", :heading, ">"]
+      # Jig::XML.xhtml_h1        # => "<xhtml:h1></xhtml:h1>"
+      # Jig::XML.xhtml__h1       # => "<xhtml_h1></xhtml_h1>"
       def method_missing(symbol, *args, &block)
         constructor = :element
         text = symbol.to_s
