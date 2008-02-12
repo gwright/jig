@@ -11,10 +11,6 @@ class Jig
    j.inspect         # => #<Jig: ["<?xml", " version=\"1.0\"", " ?>\n"]>
    j.to_s            # => <?xml version="1.0" ?>\n
 
-   j = Jig::XML.comment("sample")  
-   j.inspect         # => #<Jig: ["<!-- ", "sample", " -->\n"]>
-   j.to_s            # => <!-- sample -->\n
-
    j = Jig::XML.book(Jig::XMLtitle('War and Peace'))
    j.inspect         # => #<Jig: ["<book", nil, ">", "<title", nil, ">\n", "War and Peace", "</title>\n", "</book>\n"]>
    j.to_s            # => <book><title>\nWar and Peace</title>\n </book>
@@ -297,19 +293,21 @@ class Jig
       #
       #   Jig::XML.comment("This is a comment")
       # 
-      #   <!-- This is a comment -->
+      #   \<!-- This is a comment -->
       def comment(*args)
+        #:stopdoc:
         args.push(lambda{|*x| yield(*x) }) if block_given?
         args.push GAP if args.empty?
         jig = (Cache[:comment] ||= new("<!-- ".freeze, GAP, " -->\n".freeze).freeze)
         jig.plug(GAP, *args)
+        #:startdoc:
       end
 
       # Construct a multiline XML comment element.
       #
       #   Jig::XML.comment("first line\nsecond line")
       #   
-      #   <!-- 
+      #   \<!-- 
       #   first line
       #   second line
       #   -->

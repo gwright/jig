@@ -1,6 +1,6 @@
 Jig
     by Gary R. Wright
-    FIX (url)
+    http://jig.rubyforge.org
 
 == DESCRIPTION:
   

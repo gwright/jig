@@ -1,3 +1,4 @@
+require 'strscan'
 
 =begin rdoc
 A jig is an ordered sequence of objects and named gaps. During construction,
@@ -107,11 +108,10 @@ class Jig
     # If _open_ is provided, a single line of text will be wrapped with the _open_
     # and _close_ strings but multiple lines of text will be formatted as a block
     # comment.  If _close_ is not provided it is taken to be the <i>open.reverse</i>.
-    #   Jig[Jig::Gap.comment]                      # text reformated to 72 columns
-    #   Jig[Jig::Gap.comment("# ")]                # text reformated as Ruby comments
-    #   Jig[Jig::Gap.comment("// ")]               # text reformated as Javascript comments
-    #   Jig[Jig::Gap.comment(" *", "/* ")]         # text reformated as C comments
-    #   Jig[Jig::Gap.comment(" ", "<-- ", " -->")] # text reformated as XML comments
+    #   Jig[Jig::Gap.comment]                       # text reformated to 72 columns
+    #   Jig[Jig::Gap.comment("# ")]                 # text reformated as Ruby comments
+    #   Jig[Jig::Gap.comment("// ")]                # text reformated as Javascript comments
+    #   Jig[Jig::Gap.comment(" *", "/* ")]          # text reformated as C comments
     #
     # If the default gap name isn't appropriate you must fill in all the arguments:
     #   Jig[Jig::Gap.comment("# ", nil, nil, 72, :alternate)]    # alternate gap name
@@ -192,22 +192,42 @@ class Jig
     #
     #   A.new.secret          # NoMethodError
     #   A.new.to_jig.to_s     # secret: xyzzy
+
+    Before = /([^%]*)(?=(%\{))/
+    Replace = /%\{(.?)(.+)\1\}/
+
     def parse(string=nil, context=nil)
       wrapper = context || Module.new.class_eval { binding }
-      raw = string.scan(/(.*?)(%\{(.)(.*?)\3\}|\z)/).inject([]) { |list, (before, quoted, delim, stripped)|
-        list << before unless before.empty?
-        case delim
-        when ':'
-          list << stripped.to_sym
-        when '!'
-          list << eval("lambda {#{stripped}}", wrapper)
-        when nil,''
-          list
+      scanner = StringScanner.new(string)
+      raw = []
+      while !scanner.eos?
+        if before = scanner.scan(Before)
+          if replace = scanner.scan(Replace)
+            raw << before
+            raw << interpolate(replace, wrapper)
+          else
+            before << scanner.getch
+            raw << before
+          end
         else
-          list << parse_other(delim, stripped)
+          raw << scanner.rest
+          scanner.terminate
         end
-      }
+      end
       Jig.new(*raw)
+    end
+
+    def interpolate(replace, context)
+      all, delimiter, content = *(replace.match(Replace))
+
+      case delimiter
+      when ':'
+        content.to_sym
+      when '!', ''
+        eval("lambda {#{content}}", context)
+      else
+        parse_other(delimiter, content)
+      end
     end
 
     def parse_other(delim, stripped)
@@ -233,7 +253,7 @@ class Jig
   #   puts j                        # => "i is 1"
   # 
   # If no arguments are given and no block is given, the jig is constructed
-  # with a single default gap named <tt>:___</tt> (also known as Jig::GAP).
+  # with a single default gap named <tt>:\___</tt> (also known as Jig::GAP).
   #   one_gap = Jig.new
   #   one_gap.gaps           # => [:___]
   def initialize(*items, &block)

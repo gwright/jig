@@ -7,10 +7,12 @@ require './lib/jig.rb'
 
 Hoe.new('jig', Jig::VERSION) do |p|
   p.rubyforge_name = 'jig'
-  p.summary = 'a data structure that supports construction and manipulation of strings with hierarchical structure'
+  p.summary = 'A Jig is a data structure that supports construction and manipulation of strings with hierarchical structure.'
   p.description = p.paragraphs_of('README.txt', 2..5).join("\n\n")
-  p.url = p.paragraphs_of('README.txt', 0).first.split(/\n/)[1..-1]
   p.changes = p.paragraphs_of('History.txt', 0..1).join("\n\n")
+  p.author = "Gary R. Wright"
+  p.email = "gwright@rubyforge.org"
+  p.url = "http://jig.rubyforge.org"
 end
 
 task :spec do

@@ -8,3 +8,6 @@ lib/jig/xhtml.rb
 lib/jig/css.rb
 test/test_jig.rb
 test/test_css.rb
+test/test_xml.rb
+test/test_xhtml.rb
+test/test_parse.rb
