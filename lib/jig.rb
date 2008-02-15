@@ -193,7 +193,7 @@ class Jig
     #   A.new.secret          # NoMethodError
     #   A.new.to_jig.to_s     # secret: xyzzy
 
-    Before = /([^%]*)(?=(%\{))/
+    Before = /[^%]*/
     Replace = /%\{(.?)(.+)\1\}/
 
     def parse(string=nil, context=nil)
@@ -206,8 +206,8 @@ class Jig
             raw << before
             raw << interpolate(replace, wrapper)
           else
-            before << scanner.getch
             raw << before
+            raw << scanner.getch unless scanner.eos?
           end
         else
           raw << scanner.rest
@@ -329,7 +329,7 @@ class Jig
   end
 
   # Returns true if the string representation of the jig matches the
-  # </tt>rhs.to_str</tt> using String#===. Procs are evaluated by Jig#====.
+  # +rhs.to_str+ using String#=~. Procs are evaluated by Jig#===.
   def ===(rhs)
     to_s =~ rhs.to_str
   end
@@ -622,12 +622,12 @@ class Jig
     dup.after!(*args)
   end
 
-  # call-seq
+  # call-seq:
   #   split(pattern=$;, [limit])
   #
   # With no arguments, the jig is split at the gap positions into an 
-  # array of strings.  If arguments are provided, the entire string is
-  # rendered to a string and the result of String#split (with the
+  # array of strings.  If arguments are provided, the jig is
+  # rendered to a string by #to_s and the result of String#split (with the
   # arguments) is returned.
   def split(*args)
     if args.empty?
@@ -849,8 +849,8 @@ class Jig
   end
 
   # :stopdoc:
-  # This method alters the current jig by replacing a gap with a 
-  # (possibly empty) sequence of objects. The contents and rawgap arrays
+  # This method alters the current jig by replacing a gap with a (possibly
+  # empty) sequence of objects. The contents and rawgap arrays
   # are modified such that the named gap is removed and the sequence of
   # objects are put in the logical position of the former gap.
   #
