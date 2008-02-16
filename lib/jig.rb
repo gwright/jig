@@ -824,8 +824,10 @@ class Jig
     gaps.each_with_index do |gap, index|
       match = index + adjust
       items = block_given? && yield(gap)
-      fill = rawgaps.at(match).fill(items)
-      adjust += plug_gap!(match, fill) - 1
+      if items != gap
+        fill = rawgaps.at(match).fill(items)
+        adjust += plug_gap!(match, fill) - 1
+      end
     end
     self
   end
