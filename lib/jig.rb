@@ -40,7 +40,7 @@ replaced with the same sequence of objects.
   puts j.plug(:separator, '/')                  # => "first/middle/last"
 =end
 class Jig
-  VERSION = '0.1.0'
+  VERSION = '0.1.1'
   autoload :XML, "jig/xml"
   autoload :XHTML, "jig/xhtml"
   autoload :CSS, "jig/css"
@@ -68,7 +68,7 @@ class Jig
     end
 
     def inspect
-      "#<Gap: [#{name}, #{filter.inspect}]>"
+      "#<#{self.class.name}: [#{name}, #{filter.inspect}]>"
     end
 
     # Pass the replacement items through the filter.
@@ -79,7 +79,9 @@ class Jig
     # Two gaps are equal if they have the same name and
     # use the same filter.
     def ==(other)
-      name == other.name && filter == other.filter
+      self.class == other.class &&
+      name == other.name && 
+      filter == other.filter
     end
 
     # Change the name of the gap.
