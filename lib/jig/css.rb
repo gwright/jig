@@ -229,6 +229,9 @@ class Jig
       end
     end
 
+    # Returns a standard jig representation of the CSS jig.  Gaps that are
+    # used internally by the CSS class are closed.  #to_jig should be used before
+    # combining one or more CSS jigs.
     def to_jig
       Jig.new(plug( :__s => nil, :__de => nil, :__ds => nil ))
     end

@@ -2,8 +2,8 @@ require 'jig'
 require 'jig/xml'
 
 class Jig
-	# Jig::XHTML is a subclass of Jig::XML and is designed to assist in the
-	# construction of XHTML documents.
+  # Jig::XHTML is a subclass of Jig::XML and is designed to assist in the
+  # construction of XHTML documents.
   class XHTML < XML
     attr_accessor :extra
     protected :extra
@@ -35,8 +35,8 @@ class Jig
     class <<self
       # Construct a jig for an XHTML element with _tag as the tag and include
       # an ID attribute with a guaranteed unique value.
-			# Example:
-			#			puts Jig::XHTML.element_with_id('div')		# <div id="x2354322">\n</div> 
+      # Example:
+      #      puts Jig::XHTML.element_with_id('div')    # <div id="x2354322">\n</div> 
       def element_with_id(tag, *args)
         attrs = { 'id' => :id }
         attrs = attrs.merge!(args.pop) if args.last.respond_to?(:fetch)
@@ -49,11 +49,11 @@ class Jig
 
       # Construct a jig for an emtpy XHTML element with _tag as the tag and include
       # an ID attribute with a guaranteed unique value.  The selected id is
-			# accessible via the eid attribute.
-			# Example:
-			#			j = Jig::XHTML.element_with_id('input', :name=>'login')
-			#			puts j					# <input name="login" id="x2354328"/>
-			#			puts j.eid			# x2354328
+      # accessible via the eid attribute.
+      # Example:
+      #      j = Jig::XHTML.element_with_id('input', :name=>'login')
+      #      puts j          # <input name="login" id="x2354328"/>
+      #      puts j.eid      # x2354328
       def element_with_id!(tag, *args)
         attrs = { 'id' => :id }
         attrs = attrs.merge!(args.pop) if args.last.respond_to?(:fetch)
@@ -64,10 +64,10 @@ class Jig
         jig.plug!(:id, jig.eid)
       end
 
-			# Construct an element based on the method name.  If the method name
-			# ends in '_with_id' or '_with_id!', the element is constructed with
-			# a unique XML id attribute otherwise the Jig::XML element construction
-			# rules apply.
+      # Construct an element based on the method name.  If the method name
+      # ends in '_with_id' or '_with_id!', the element is constructed with
+      # a unique XML id attribute otherwise the Jig::XML element construction
+      # rules apply.
       def method_missing(sym, *args, &block)
         text = sym.to_s
         if text.to_s =~ /_with_id!*$/
@@ -83,26 +83,43 @@ class Jig
         :frameset, %{"-//W3C//DTD XHTML 1.0 Frameset//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd"}
       }
 
-			# Construct an XHTML DOCTYPE declaration. The first argument, _dtype_, specifies
-			# the type of document: :strict, :transitional, or :frameset.  Any additional
-			# arguments are rendered after the DOCTYPE declaration.  A default gap is *not*
-			# inserted if their are no arguments. Examples:
-			#
-			#	puts X.doctype(:strict)	# <!DOCTYPE html PUBLIC -//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd>
-			# puts X.doctype(:strict).gaps.size    # 0
+      # Construct an XHTML DOCTYPE declaration. The first argument, _dtype_, specifies
+      # the type of document: :strict, :transitional, or :frameset.  Any additional
+      # arguments are rendered after the DOCTYPE declaration.  A default gap is *not*
+      # inserted if their are no arguments. Examples:
+      #
+      #  puts X.doctype(:strict)  
+      #    # => <!DOCTYPE html PUBLIC -//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd>
+      #  puts X.doctype(:strict).gaps.size    # 0
       def doctype(dtype, *args, &block)
         new(%{<!DOCTYPE html PUBLIC #{DOCTYPES.fetch(dtype)}>\n}, *args, &block)
       end
 
-			# Construct a generic XHTML document.  If the first argument is a symbol it is
-			# used to look up a matching DOCTYPE declaration (see #doctype).
-			# X.xhtml						# transitional document with :title, :head, and :___
-			# X.xhtml :strict		# strict document with :title, :head, and :___
-			# X.xhtml :lang => 'jp'  # transition document with HTML attributes merged
-			# X.xhtml(head, body)		 # transitional document with explicit head & body
+      # call-seq:
+      #   xhtml([attributes]) -> a_jig
+      #   xhtml(doctype, [attributes]) -> a_jig
+      #   xhtml(doctype, *items, [attributes]) -> a_jig
+      #   xhtml(*items, [attributes]) -> a_jig
+      # Construct a generic XHTML document.  With no arguments, a transitional
+      # document with three gaps, <tt>:title</tt>, <tt>:head</tt>, and <tt>:___</tt>
+      # is generated.  The default gap represents the contents of the body element.
+      #
+      # With a single symbol argument, <i>doctype</i>, an XHTMl document is generated
+      # with a corresponding DOCTYPE declaration (see #doctype).
+      #
+      # If any arguments are provided other than a doctype, the additional arguments
+      # are used as the contents of the HTML element.
+      #
+      # A trailing hash argument is assumed to represent additional XML attributes for
+      # the html element.
+      #   X.xhtml                 # transitional document with :title, :head, and :___
+      #   X.xhtml :strict         # strict document with :title, :head, and :___
+      #   X.xhtml(:strict, head, body)  # strict document with explicit head & body
+      #   X.xhtml(head, body)     # transitional document with explicit head & body
+      #   X.xhtml :lang => 'jp'   # transition document with HTML attributes merged
       def xhtml(dtype=:transitional, *args, &block)
-        if dtype.respond_to?(:fetch)
-          dtype,*args = :transitional,dtype
+         unless Symbol === dtype
+          dtype,args = :transitional,args.unshift(dtype)
         end
         attrs = {:lang=>'en', "xml:lang"=>'en', :xmlns=>'http://www.w3.org/1999/xhtml'}
         attrs.merge!(args.pop) if args.last.respond_to?(:fetch) 
@@ -112,11 +129,11 @@ class Jig
         doctype(dtype,html(*args))
       end
 
-			# A convenience method for constructing an XHTML element with a named
-			# CSS class and an unique XHTML element ID.
-			# 
-			#   X.container('span', 'urgent', 'This is urgent!')
-			#			=> <span class="urgent" id="x2337852"></span>
+      # A convenience method for constructing an XHTML element with a named
+      # CSS class and an unique XHTML element ID.
+      # 
+      #   X.container('span', 'urgent', 'This is urgent!')
+      #      => <span class="urgent" id="x2337852"></span>
       def container(tag, css, *args)
         args.push(Proc.new) if block_given?
         args.push(:class => css)
@@ -125,26 +142,26 @@ class Jig
         jig
       end
 
-			# An even shorter way to construct a div container
-			#
-			#   X.divc('urgent', 'This is urgent!')
-			#			=> <div class="urgent" id="x2337852"></div>
+      # An even shorter way to construct a div container
+      #
+      #   X.divc('urgent', 'This is urgent!')
+      #      => <div class="urgent" id="x2337852"></div>
       def divc(css_class, *args, &block)
         container(:div, css_class, *args, &block)
       end
 
-			# Generate a link element for a favicon. Extra attributes
-			# may be specified via the optional argument, _extra_.
-			#
-			#   X.link_favicon
-			#			=> <link src="/favicon.ico" type="image/x-icon" rel="icon"/>
+      # Generate a link element for a favicon. Extra attributes
+      # may be specified via the optional argument, _extra_.
+      #
+      #   X.link_favicon
+      #      => <link src="/favicon.ico" type="image/x-icon" rel="icon"/>
       def link_favicon(extra={})
         attrs = {:type=>"image/x-icon", :rel=>"icon", :src=>'/favicon.ico'}
         attrs.merge! extra
         link!(attrs)
       end
 
-			# XXX: is this no longer needed?
+      # XXX: is this no longer needed?
       def normalize_args(args, attrs={}) # :nodoc"
         attrs.merge!(args.pop) if args.last.respond_to?(:fetch)
         args.push(Proc.new) if block_given?
@@ -152,18 +169,18 @@ class Jig
         return args, attrs
       end
 
-			# Generate a CSS style sheet element. If a 'src' attribute
-			# is provided the contents is empty.  Without a 'src' attribute
-			# a CDATA block wraps the contents of the element.
-			#
-			#   j = Jig::XHTML.style
-			#   puts j.plug('/* CSS style sheet */')
-			#
-			#   <style media="all" type="text/css">
-			#   <![CDATA[
-			#   /* CSS style sheet */
-			#    ]]>
-			#   </style>
+      # Generate a CSS style sheet element. If a 'src' attribute
+      # is provided the contents is empty.  Without a 'src' attribute
+      # a CDATA block wraps the contents of the element.
+      #
+      #   j = Jig::XHTML.style
+      #   puts j.plug('/* CSS style sheet */')
+      #
+      #   <style media="all" type="text/css">
+      #   <![CDATA[
+      #   /* CSS style sheet */
+      #    ]]>
+      #   </style>
       def style(*args, &block)
         attrs = {:type=>"text/css", :media=>"all"}
         attrs.merge!(args.pop) if args.last.respond_to?(:fetch) 
@@ -180,16 +197,16 @@ class Jig
         link!('rel' => 'stylesheet', 'type' => 'text/css', 'href' => src)
       end
 
-			# Generate a script element.  XXX
-			#
-			#   j = Jig::XHTML.script
-			#   puts j.plug(cdata("# the script"))
-			#
-			#   <script type=">
-			#   <![CDATA[
-			#   # the script
-			#    ]]>
-			#   </script>
+      # Generate a script element.  XXX
+      #
+      #   j = Jig::XHTML.script
+      #   puts j.plug(cdata("# the script"))
+      #
+      #   <script type=">
+      #   <![CDATA[
+      #   # the script
+      #    ]]>
+      #   </script>
       def script(*args, &block)
         attrs = args.pop if args.last.respond_to?(:fetch) 
         args.push(Proc.new) if block_given?
@@ -216,12 +233,12 @@ class Jig
         new(a({:href=>"#", :onclick => "toggle(#{body.eid})"}, '(details)'), body)
       end
 
-			# Generate a Javascript comment.
-			#
-			#   j = Jig::XHTML.js_comment
-			#   puts j.plug("comment")
-			#
-			#		/* comment */
+      # Generate a Javascript comment.
+      #
+      #   j = Jig::XHTML.js_comment
+      #   puts j.plug("comment")
+      #
+      #    /* comment */
       def js_comment(*args, &block)
         gap = Jig::Gap.new(:comment) { |*filling| 
           filling.map {|item| 
@@ -231,30 +248,30 @@ class Jig
         new(gap, "\n").plug(:comment, *args)
       end
 
-			# Generate a multiline Javascript comment.
-			#
-			#   j = Jig::XHTML.js_comments
-			#   puts j.plug("line 1\nline 2")
-			#
-			#		/*
-			#   line 1
-			#   line 2
-			#    */
+      # Generate a multiline Javascript comment.
+      #
+      #   j = Jig::XHTML.js_comments
+      #   puts j.plug("line 1\nline 2")
+      #
+      #    /*
+      #   line 1
+      #   line 2
+      #    */
       def js_mlcomment(*args, &block)
         new("/*\n", new(*args, &block), "\n */\n")
       end
 
-			# Generate an inline script element for javascript.
-			# The body of the script is wrapped in a CDATA block.
-			#
-			#   j = Jig::XHTML.javascript
-			#   puts j.plug("// the script")
-			#
-			#   <script type="text/javascript" language="JavaScript">
-			#   <![CDATA[
-			#   // the script
-			#    ]]>
-			#   </script>
+      # Generate an inline script element for javascript.
+      # The body of the script is wrapped in a CDATA block.
+      #
+      #   j = Jig::XHTML.javascript
+      #   puts j.plug("// the script")
+      #
+      #   <script type="text/javascript" language="JavaScript">
+      #   <![CDATA[
+      #   // the script
+      #    ]]>
+      #   </script>
       def javascript(*args, &block)
         attrs = {:type=>"text/javascript", :language=>"JavaScript"}
         attrs.merge!(args.pop) if args.last.respond_to?(:fetch) 

@@ -1,3 +1,5 @@
-== 0.1.0 / 2007-05-11
-
+== 0.1.0 / 2007-05-17
 * Initial Release
+  * basic jig support
+  * XML, XHMTL support
+  * CSS support (experimental)

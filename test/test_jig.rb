@@ -432,13 +432,6 @@ class MultipleGaps < Test::Unit::TestCase
     assert_equal("<form onsubmit=\"ab\">\n</form>\n", j2.plug(:gap1, "X").to_s)
   end
 
-  def xtest_depth
-    a = X.new
-    b = X.new(:"a/b")
-    assert_equal(0, a[Jig::GAP].depth)
-    assert_equal(1, b[:"a/b"].depth)
-  end
-
   def test_escape
     ok = 'a'
     bad = '<'
