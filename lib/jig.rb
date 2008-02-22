@@ -694,7 +694,7 @@ class Jig
             alias inspect :to_s
             undef to_s
             def to_s; call.to_s; end
-            def to_yaml; call.to_yaml; end
+            def to_yaml(opts={}); call.to_yaml(opts); end
             #:startdoc:
           }
           contents.last << i
