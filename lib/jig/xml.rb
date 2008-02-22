@@ -78,6 +78,26 @@ class Jig
    j = X.div('inner', :style=> color)           # => <div style="color: red">inner</div>
    j.to_s                                       # => <div style="color: green">inner</div>
 =end
+
+  class ALGap < Gap
+    def fill(h)
+      h && h.map { |k,v| Jig::XML.attribute(k, v) }
+    end
+  end
+
+  class AGap < Gap
+    attr_accessor :aname
+
+    def initialize(name, aname)
+      super(name)
+      self.aname = aname
+    end
+
+    def fill(fill)
+      Jig::XML.attribute(aname, fill)
+    end
+  end
+
   class XML < Jig
     # Converts _hash_ into attribute value pairs and pushes them
     # on the end of the jig.
@@ -117,7 +137,8 @@ class Jig
         when nil, false
           ""
         when Symbol
-          Gap.new(value) { |fill| attribute(aname, fill) }
+          AGap.new(value, aname)
+          #Gap.new(value) { |fill| attribute(aname, fill) }
         when Gap
           value
         when Proc, Method
@@ -157,7 +178,8 @@ class Jig
       private :parse_other
 
       ATTRS = Gap::ATTRS # :nodoc:
-      ATTRS_GAP = Gap.new(ATTRS) { |h| h && h.map { |k,v| Jig::XML.attribute(k, v) } } # :nodoc:
+      ATTRS_GAP = Jig::ALGap.new(ATTRS)
+      #ATTRS_GAP = Gap.new(ATTRS) { |h| h && h.map { |k,v| Jig::XML.attribute(k, v) } } # :nodoc:
 
       Element_Cache = {} # :nodoc:
       # Construct a generic XML element with two gaps:

@@ -40,7 +40,7 @@ replaced with the same sequence of objects.
   puts j.plug(:separator, '/')                  # => "first/middle/last"
 =end
 class Jig
-  VERSION = '0.1.1'
+  VERSION = '0.1.2'
   autoload :XML, "jig/xml"
   autoload :XHTML, "jig/xhtml"
   autoload :CSS, "jig/css"
@@ -694,6 +694,7 @@ class Jig
             alias inspect :to_s
             undef to_s
             def to_s; call.to_s; end
+            def to_yaml; call.to_yaml; end
             #:startdoc:
           }
           contents.last << i
