@@ -40,7 +40,7 @@ replaced with the same sequence of objects.
   puts j.plug(:separator, '/')                  # => "first/middle/last"
 =end
 class Jig
-  VERSION = '0.1.2'
+  VERSION = '0.1.3'
   autoload :XML, "jig/xml"
   autoload :XHTML, "jig/xhtml"
   autoload :CSS, "jig/css"
@@ -53,7 +53,6 @@ class Jig
   class Gap
     ATTRS = :__a
     GAP = :___
-
     # the name associated with the gap
     attr :name    
 
@@ -69,6 +68,10 @@ class Jig
 
     def inspect
       "#<#{self.class.name}: [#{name}, #{filter.inspect}]>"
+    end
+
+    def terse_inspect
+      filter && "#{name}{}".to_sym || name
     end
 
     # Pass the replacement items through the filter.
@@ -308,6 +311,12 @@ class Jig
     contents.zip(rawgaps).flatten.eql?(rhs.contents.zip(rhs.rawgaps).flatten)
   end
 
+  # Construct and array that represents the syntax of the jig including its
+  # gaps. Gaps are only distinguished by their name and not their semantics.
+  def syntax
+    contents.zip(gaps).flatten
+  end
+
   # Returns true if +rhs+ is an instance of Jig or one of Jig's subclasses and
   # the two jigs have equal gap lists and contents (via Array#==).
   # Procs are not evaluated by Jig#==.
@@ -346,7 +355,7 @@ class Jig
   #   Jig.new(1,:a,2).inspect                             # => #<Jig: [1, :a, 2]>
   #   Jig.new(Gap.new(:example) { |x| x.to_s.reverse })  # => #<Jig: [:example{}]>
   def inspect
-    info = rawgaps.map {|g| g.filter && "#{g.name}{}".to_sym || g.name }
+    info = rawgaps.map {|g| g.terse_inspect }
     "#<Jig: #{contents.zip(info).flatten[0..-2].inspect}>"
   end
 
