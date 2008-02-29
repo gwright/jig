@@ -1,0 +1,7 @@
+
+Extend Jig#fill to take a list of gaps to consider instead of
+iterating over all the gaps.  This will permit a shortcut for
+the special case of plugging a single gap.
+
+When plugging gaps via a proc, the proc should only be called
+once for each gap name.
