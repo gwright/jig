@@ -40,7 +40,7 @@ replaced with the same sequence of objects.
   puts j.plug(:separator, '/')                  # => "first/middle/last"
 =end
 class Jig
-  VERSION = '0.1.3'
+  VERSION = '0.1.2'
   autoload :XML, "jig/xml"
   autoload :XHTML, "jig/xhtml"
   autoload :CSS, "jig/css"

@@ -1,4 +1,20 @@
-== 0.1.0 / 2007-05-17
+== 0.1.1 / 2008-02-28
+
+* Jig#syntax to help with jig comparison
+* Jig#terse_inspect to help with nested inspect and gaps with processing
+* testing of Jig#parse
+* to_yaml of jigs with procs
+* Callable objects are now rendered to strings via to_yaml
+* Attribute gaps have their own class now instead of being adhoc gap filters.
+* Gap#== checks classes
+* Gap with filter was being replaced by a plain gap.
+  Ignore filling if filling is the same gap.
+* Jig#parse correction
+* cleanup up some documentation typos
+* reimplemented Jig.parse with StringScanner, fixed bugs
+
+== 0.1.0 / 2007-05-11
+
 * Initial Release
   * basic jig support
   * XML, XHMTL support
