@@ -40,7 +40,7 @@ replaced with the same sequence of objects.
   puts j.plug(:separator, '/')                  # => "first/middle/last"
 =end
 class Jig
-  VERSION = '0.1.2'
+  VERSION = '0.1.3'
   autoload :XML, "jig/xml"
   autoload :XHTML, "jig/xhtml"
   autoload :CSS, "jig/css"
@@ -167,6 +167,9 @@ class Jig
       new(nil)
     end
 
+    Before = /[^%]*/
+    Replace = /%\{(.?)(.+?)\1\}/
+
     # Convert a string into a jig. The string is scanned for blocks deliminated by %{...}.
     # The blocks are interpreted as follows:
     #   %{:identifier:}          is converted into a gap named *identifier*
@@ -178,8 +181,8 @@ class Jig
     # be evaluated against an explicit binding passed as the second argument.
     #
     #   Jig.parse("abc").to_s     # abc
-    #   Jig.parse("1 %{:x} 3")    # Jig[1, :x, 3]
-    #   Jig.parse("1 %{:x} 3")    # Jig[1, :x, 3]
+    #   Jig.parse("1 %{:x:} 3")    # Jig[1, :x, 3]
+    #   Jig.parse("1 %{:x:} 3")    # Jig[1, :x, 3]
     #
     #   a = 5
     #   Jig.parse("%{a + 1}", binding).to_s    #  6
@@ -197,10 +200,6 @@ class Jig
     #
     #   A.new.secret          # NoMethodError
     #   A.new.to_jig.to_s     # secret: xyzzy
-
-    Before = /[^%]*/
-    Replace = /%\{(.?)(.+)\1\}/
-
     def parse(string=nil, context=nil)
       wrapper = context || Module.new.class_eval { binding }
       scanner = StringScanner.new(string)

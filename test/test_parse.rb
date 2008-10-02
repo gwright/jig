@@ -28,6 +28,13 @@ class TestParse < Test::Unit::TestCase
     assert_equal(" bacon", j[2].to_s)
   end
 
+  def test_two_gaps
+    source = "chunky %{:adjective:} %{:noun:}"
+    j = Jig.parse(source)
+    assert_equal([:adjective, :noun], j.gaps)
+    assert_equal("chunky thick bacon", j.plug(:adjective => 'thick', :noun => 'bacon').to_s)
+  end
+
   def test_agap
     source = "<input%{=type,itype=} />"
     j = Jig::XML.parse(source)
