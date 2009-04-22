@@ -4,6 +4,7 @@ require 'test/jig'
 
 class TestXML < Test::Unit::TestCase
   X = Jig::XML
+  A = Class.new(X)
   include Asserts
   def setup
     @div = X.element('div')
@@ -103,6 +104,9 @@ class TestXML < Test::Unit::TestCase
     assert_equal(@div_1attrfilled, X.div( {'a' => 'b'}) { "inside" }.to_s)
     assert_equal(@div_1attrfilled, X.div(lambda { "inside" }, {'a' => 'b'} ).to_s)
     assert_equal(@div_1attrfilled2, (X.div(lambda { "inside" },  {'a' => 'b'}) { "also" }).to_s)
+
+    # namespaces
+    assert_match(/\A<a:div><\/a:div>/, A.div.to_s)
   end
 
   def test_more_plugging

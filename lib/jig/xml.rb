@@ -230,6 +230,7 @@ class Jig
       def method_missing(symbol, *args, &block)
         constructor = :element
         text = symbol.to_s
+
         if text =~ /!\z/
           text.chop!
           constructor = :element!
@@ -237,13 +238,20 @@ class Jig
           text.chop!
           constructor = :anonymous
         end
+
         if text =~ /_$/    # alternate for clashes with existing methods
           text.chop!
         end
+
         if text =~ /_/
           # Single _ gets converted to : for XML name spaces
           # Double _ gets converted to single _
           text = text.gsub(/([^_])_([^_])/){|x| "#{$1}:#{$2}"}.gsub(/__/, '_')
+        end
+
+        if self != Jig::XML and self != Jig::XHTML
+          namespace = name.split('::').last.downcase
+          text = "#{namespace}:#{text}"
         end
         send(constructor, text, *args, &block)
       end
