@@ -125,6 +125,14 @@ class TestJig < Test::Unit::TestCase
     assert_equal(%Q{abc}, (J.new("a", Jig::GAP, "c") << J.new(Jig::GAP) << "b").to_s, 'implicit names: plugging gap with a gap')
     assert_equal(%Q{abc}, (J.new("a", Jig::GAP, "c") << J.new(Jig::GAP) << "b").to_s, 'implicit names: plugging gap with a gap')
     assert_equal(%Q{abc}, (J.new("a", Jig::GAP, "c") << J.new << "b").to_s, 'implicit names: plugging gap with a gap')
+
+    assert_as_string(%Q{a}, J.new.plug('a'), 'implicit names: default gap is filled')
+    assert_equal(Jig.new(:alpha), J.new.plug(:alpha), 'implicit names: default gap plugged with new gap')
+    assert_equal(J.new, J.new.plug(:foo, nil), 'implicit names: explicit replacement overrides default behavior')
+
+    # too many args
+    assert_raise(ArgumentError) { Jig.new.plug('a', 'b') }
+    assert_raise(ArgumentError) { Jig.new.plug(:___, 'b', 'c') }
   end
 
   def test_array
@@ -151,7 +159,7 @@ class TestJig < Test::Unit::TestCase
   end
 
   def test_plug_gap_sequence
-    c = Jig.new.plug(:___, :title, :head, :foo)
+    c = Jig.new.plug(:___, [:title, :head, :foo])
     assert_equal([:title, :head, :foo], c.gaps)
     assert_equal(4, c.contents.size)
   end
@@ -453,7 +461,7 @@ class MultipleGaps < Test::Unit::TestCase
     a.freeze
     assert(a.frozen?)
     assert_nothing_raised { a.plug 'a' }
-    assert_raises(TypeError) { a << 'a' }
+    assert_raise(RuntimeError, TypeError) { a << 'a' }
   end
 
   def test_conversion

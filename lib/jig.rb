@@ -75,8 +75,8 @@ class Jig
     end
 
     # Pass the replacement items through the filter.
-    def fill(*filling)
-      return *(filter && filter[*filling] || filling)
+    def fill(filling)
+      return (filter && filter[filling] || filling)
     end
 
     # Two gaps are equal if they have the same name and
@@ -141,6 +141,13 @@ class Jig
         end
       end
     end
+  end
+
+  # :nodoc:
+  # Augment proc-like objects with methods to facilitate rendering
+  module ProcMethods
+    def to_s; call.to_s; end
+    def to_yaml(opts={}); call.to_yaml(opts); end
   end
 
   # :section: Construction
@@ -525,12 +532,12 @@ class Jig
   #   plug                      -> a_jig
   #   plug { |gap| ... }        -> a_jig
   #   plug(hash)                -> a_jig
-  #   plug(symbol, item, ...)   -> a_jig
-  #   plug(item, ...)           -> a_jig
+  #   plug(symbol, replacement) -> a_jig
+  #   plug(replacement)         -> a_jig
   #
   # Duplicates the current jig,  plugs one or more named gaps, and
   # returns the result. Plug silently ignores attempts to fill
-  # undefined gaps.  In all cases, the replacement items are inserted
+  # undefined gaps.  In all cases, the replacement object is inserted
   # into the jig as during Jig construction (see Jig#new).
   #
   # If called with no arguments, any remaining gaps are plugged with nil.
@@ -547,11 +554,11 @@ class Jig
   # If called with a single symbol argument, the default gap is replaced
   # with a new gap named by the symbol.
   #
-  # If two or more arguments are provided and the first argument is 
-  # a symbol, the named gap is replaced with the list of items.
+  # If two arguments are provided and the first argument is 
+  # a symbol, the named gap is replaced with the second argument.
   #
-  # In all other cases, the default gap is replaced with the list of
-  # items.
+  # In all other cases, the default gap is replaced with the replacement
+  # object.
   #
   #   j = Jig.new                 # => #<Jig: [:___]>
   #   jg = Jig[:gamma, :epsilon]  # => #<Jig: [:gamma, :epsilon]>
@@ -696,15 +703,7 @@ class Jig
         elsif i.respond_to? :to_jig
           push_jig i.to_jig
         elsif i.respond_to? :call
-          (class <<i; self; end).class_eval {
-            undef inspect
-            #:stopdoc:
-            alias inspect :to_s
-            undef to_s
-            def to_s; call.to_s; end
-            def to_yaml(opts={}); call.to_yaml(opts); end
-            #:startdoc:
-          }
+          i.extend(ProcMethods)
           contents.last << i
         else
           contents.last << i
@@ -739,20 +738,22 @@ class Jig
   # Plugs one or more named gaps (see #plug) and returns self.  The current jig is
   # modified.  To construct a new jig use #plug instead.
   # If the named plug is not defined, the jig is not changed.
-  def plug!(*args, &block)
-    return fill!(&block) if block or args.empty?
-    first, *more = args
+  def plug!(first=nil, *more, &block)
+    raise ArgumentError if more.size > 1
+    return fill!(&block) if block or (!first and more.empty?)
     case first
     when Hash
+      raise ArgumentError unless more.empty?
       fill! { |g| first.fetch(g, g) }
     when Symbol 
       if more.empty?
         fill! { |g| g == GAP ? first : g }
       else
-        fill! { |g| g == first ? (x = *more) : g }
+        fill! { |g| g == first ? more.first : g }
       end
     else
-      fill! { |g| g == GAP ? (x = *args) : g }
+      raise ArgumentError unless more.empty?
+      fill! { |g| g == GAP ? first : g }
     end
   end
   alias []= :plug!

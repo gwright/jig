@@ -20,7 +20,7 @@ class TestXML < Test::Unit::TestCase
   def test_xml
     assert_as_string(%Q{<?xml version="1.0" ?>\n}, X.xml)
     v,e = %Q{version="1.0"}, %Q{encoding="UTF-8"}
-    assert_as_string(%Q{<?xml #{e} #{v} ?>\n}, X.xml(:encoding => "UTF-8"))
+    assert_as_string(/<\?xml (#{e} #{v}|#{v} #{e}) \?>\n/, X.xml(:encoding => "UTF-8"))
   end
 
   def test_hash

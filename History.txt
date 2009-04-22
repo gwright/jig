@@ -1,8 +1,13 @@
+== 0.1.3 / 2009-?-?
+* Fixes to make compatible with Ruby 1.9
+* Jig#plug now expects a single argument for the replacement object.
+  Use an array to replace a plug with multiple arguments.
+
 == 0.1.1 / 2008-02-28
 
 * Jig#syntax to help with jig comparison
 * Jig#terse_inspect to help with nested inspect and gaps with processing
-* testing of Jig#parse
+* Better testing of Jig#parse
 * to_yaml of jigs with procs
 * Callable objects are now rendered to strings via to_yaml
 * Attribute gaps have their own class now instead of being adhoc gap filters.
