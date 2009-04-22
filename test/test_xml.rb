@@ -43,7 +43,7 @@ class TestXML < Test::Unit::TestCase
     assert_equal(%Q{ a="b"}, X.new('a' => :alpha).plug(:alpha, "b").to_s, 'plugging an attribute')
     assert_equal(%Q{ a="b"}, X.new('a' => :alpha).plug(:alpha, lambda { "b" }).to_s, 'plugging an attribute with a proc')
     assert_equal(%Q{}, X.new('a' => :alpha).plug(:alpha, lambda { nil }).to_s, 'plugging an attribute with a proc returning nil')
-    assert_equal(%Q{}, X.new({'a',Jig::GAP}).plug(lambda { nil }).to_s, 'plugging an attribute with a proc returning nil')
+    assert_equal(%Q{}, X.new({'a' => Jig::GAP}).plug(lambda { nil }).to_s, 'plugging an attribute with a proc returning nil')
   end
 
   def test_element

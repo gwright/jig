@@ -104,9 +104,9 @@ class TestJig < Test::Unit::TestCase
     # plugging named gaps
     assert_as_string(@a1c, J.new("a", :alpha, :beta).plug(:beta, "c"))
     assert_equal("a", (J.new("a", :alpha, :beta) << [:beta, "c"]).to_s)
-    assert_as_string(@a1c, (J.new("a", :alpha, :beta) << [:beta, "c"] << {:beta, "c"} ))
-    assert_equal("abc", (J.new("a", :alpha, :beta) << [:beta, "c"] << {:beta, "c"}  << {:alpha, "b"} ).to_s)
-    assert_equal("a", (J.new("a", :alpha, :beta) << { Jig::GAP, "c"}).to_s)
+    assert_as_string(@a1c, (J.new("a", :alpha, :beta) << [:beta, "c"] << {:beta => "c"} ))
+    assert_equal("abc", (J.new("a", :alpha, :beta) << [:beta, "c"] << {:beta => "c"}  << {:alpha => "b"} ).to_s)
+    assert_equal("a", (J.new("a", :alpha, :beta) << { Jig::GAP => "c"}).to_s)
 
     # plugging  gaps with other jigs
     assert_equal(%Q{abc}, J.new("a", Jig::GAP, "c").plug(J.new("b")).to_s, 'pluging gap with string X')
@@ -133,15 +133,15 @@ class TestJig < Test::Unit::TestCase
     assert_equal(%Q{ab}, (J.new << ["a", "b"]).to_s)
     assert_equal(%Q{ab}, (J.new << [["a", "b"]]).to_s)
     assert_equal(%Q{ab}, (J.new << { Jig::GAP => ["a", "b"]}).to_s)
-    assert_equal(%Q{}, (J.new << {:alpha, ["b"]}).to_s)
+    assert_equal(%Q{}, (J.new << {:alpha => ["b"]}).to_s)
     assert_equal(%Q{}, (J.new << { :alpha => "b" }).to_s)
     assert_equal(%Q{b}, (J.new << { Jig::GAP => J[:alpha, "b"] }).to_s)
     assert_equal(%Q{ab}, (J.new << { Jig::GAP => J[:alpha, "b"] } << { :alpha => "a" } ).to_s)
     assert_equal(%Q{cb}, (J.new << J[:alpha, "b"] << {:alpha => "c"}).to_s)
-    assert_equal(%Q{cb}, ((J.new << J[:alpha, "b"]).plug(:alpha,"c")).to_s)
-    assert_equal(%Q{b}, (J.new(:alpha) << {:alpha, "b"} << {:alpha, "c"}).to_s)
-    assert_equal(%Q{cb}, (J.new << J.new(:alpha, "b") << {:alpha, "c"}).to_s)
-    assert_equal(%Q{cb}, (J.new.plug(Jig::GAP, J[:alpha, "b"]) << {:alpha, "c"}).to_s)
+    assert_equal(%Q{cb}, ((J.new << J[:alpha, "b"]).plug(:alpha => "c")).to_s)
+    assert_equal(%Q{b}, (J.new(:alpha) << {:alpha => "b"} << {:alpha => "c"}).to_s)
+    assert_equal(%Q{cb}, (J.new << J.new(:alpha, "b") << {:alpha => "c"}).to_s)
+    assert_equal(%Q{cb}, (J.new.plug(Jig::GAP, J[:alpha, "b"]) << {:alpha => "c"}).to_s)
   end
 
   def test_plug_block
@@ -341,14 +341,14 @@ class MoreX < Test::Unit::TestCase
 
     # plugging named gaps
     assert_equal(@a1c, X.new("a", :alpha, :beta).plug(:beta, "c"))
-    assert_equal("ac", (X.new("a", :alpha, :beta) << { :beta, "c"}).to_s)
-    assert_equal("ac", (X.new("a", :alpha, :beta) << { :alpha, "c"}).to_s)
+    assert_equal("ac", (X.new("a", :alpha, :beta) << { :beta => "c"}).to_s)
+    assert_equal("ac", (X.new("a", :alpha, :beta) << { :alpha => "c"}).to_s)
 
     # plugging hashs
     assert_equal(%Q{ a="b"}, X.new('a' => :a).plug(:a, "b").to_s, 'plugging an attribute')
     assert_equal(%Q{ a="b"}, X.new('a' => :a).plug(:a, lambda { "b" }).to_s, 'plugging an attribute with a proc')
     assert_equal(%Q{}, X.new('a' => :a).plug(:a, lambda { nil }).to_s, 'plugging an attribute with a proc returning nil')
-    assert_equal(%Q{}, X.new({'a',:a}).plug(lambda { nil }).to_s, 'plugging an attribute with a proc returning nil')
+    assert_equal(%Q{}, X.new({'a' => :a}).plug(lambda { nil }).to_s, 'plugging an attribute with a proc returning nil')
 
     # plugging  gaps with other jigs
     assert_equal(%Q{abc}, X.new("a", Jig::GAP, "c").plug(X.new("b")).to_s, 'pluging gap with string X')
@@ -412,13 +412,13 @@ class MultipleGaps < Test::Unit::TestCase
   def test_string_as_jig
     assert_equal("foo", X.new("foo").to_s)
     assert_equal("XfooY", X.new("X", :f, "Y").plug(:f, "foo").to_s)
-    assert_equal("XfooY", X.new("X", :f, "Y").plug({:f, "foo"}).to_s)
-    assert_equal("XfooY", X.new("X", :f, "Y").plug({:f, X.new("foo")}).to_s)
-    assert_equal("XfooY", X.new("X", :f, :g, "Y").plug({:f, X.new("foo")}).to_s)
+    assert_equal("XfooY", X.new("X", :f, "Y").plug({:f =>"foo"}).to_s)
+    assert_equal("XfooY", X.new("X", :f, "Y").plug({:f =>X.new("foo")}).to_s)
+    assert_equal("XfooY", X.new("X", :f, :g, "Y").plug({:f =>X.new("foo")}).to_s)
     assert_equal("XXC", X.new(:a, "X", :b, "X", :c).plug(:b, X.new(:b1, :b2)).plug(:c, "C").to_s)
     assert_equal("Xfoo!gooY", X.new("X", :f, "!", :g, "Y").plug(:f, X.new("foo")).plug(:g, X.new("goo")).to_s)
-    assert_equal("Xfoo!gooY", X.new("X", :f, "!", :g, "Y").plug({:f, X.new("foo"), :g, X.new("goo")}).to_s)
-    assert_equal("XfoogooY", X.new("X", :f, :g, "Y").plug({:f, X.new("foo"), :g, X.new("goo")}).to_s)
+    assert_equal("Xfoo!gooY", X.new("X", :f, "!", :g, "Y").plug({:f => X.new("foo"), :g => X.new("goo")}).to_s)
+    assert_equal("XfoogooY", X.new("X", :f, :g, "Y").plug({:f => X.new("foo"), :g => X.new("goo")}).to_s)
   end
 
   def test_1105
